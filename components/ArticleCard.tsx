@@ -1,34 +1,21 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Article } from '../lib/db';
+import { colors } from '../lib/colors';
+import { getDomain, getReadTime } from '../lib/utils';
 
 type Props = {
   article: Article;
   onPress: () => void;
 };
 
-function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function getReadTime(html: string | null): string {
-  if (!html) return '';
-  const words = html.replace(/<[^>]+>/g, '').split(/\s+/).length;
-  const mins = Math.max(1, Math.ceil(words / 200));
-  return `${mins} min`;
-}
-
 function getRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 60) return `${mins}dk önce`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return `${hrs}sa önce`;
+  return `${Math.floor(hrs / 24)}g önce`;
 }
 
 export default function ArticleCard({ article, onPress }: Props) {
@@ -50,7 +37,7 @@ export default function ArticleCard({ article, onPress }: Props) {
       </View>
 
       <Text style={styles.title} numberOfLines={2}>
-        {article.title ?? 'Loading…'}
+        {article.title ?? 'Yükleniyor…'}
       </Text>
 
       {!!article.excerpt && (
@@ -75,7 +62,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#eee',
+    borderColor: colors.border,
   },
   cardRead: {
     opacity: 0.65,
@@ -88,13 +75,8 @@ const styles = StyleSheet.create({
   },
   domain: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textMuted,
     textTransform: 'lowercase',
-  },
-  badges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   leftGroup: {
     flexDirection: 'row',
@@ -105,23 +87,23 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#1D9E75',
+    backgroundColor: colors.success,
   },
   unreadBadge: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
   },
   title: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   excerpt: {
     fontSize: 13,
-    color: '#555',
+    color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 6,
   },
@@ -131,6 +113,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#aaa',
+    color: colors.textFaint,
   },
 });

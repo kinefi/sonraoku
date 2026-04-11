@@ -1,13 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { sharedStyles } from '../../lib/sharedStyles';
 
 export default function SettingsScreen() {
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
+    <SafeAreaView style={sharedStyles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" translucent={false} />
-      <View style={styles.header}>
-        <Text style={styles.title}>Ayarlar</Text>
+      <View style={sharedStyles.header}>
+        <Text style={sharedStyles.headerTitle}>Ayarlar</Text>
       </View>
       <View style={styles.body}>
         <Text style={styles.placeholder}>Ayarlar 2. fazda geliyor.</Text>
@@ -17,23 +18,6 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111',
-  },
   body: {
     flex: 1,
     alignItems: 'center',

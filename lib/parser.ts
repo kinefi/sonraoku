@@ -75,7 +75,7 @@ ${safeSource}
     if (doc.head) doc.head.insertBefore(baseTag, doc.head.firstChild);
     var article = new Readability(doc).parse();
     if (!article) {
-      sendMessage({ success: false, error: 'Readability returned no article' });
+      sendMessage({ success: false, error: 'İçerik bulunamadı' });
       return;
     }
     sendMessage({
@@ -86,7 +86,7 @@ ${safeSource}
       lang: doc.documentElement.lang || '',
     });
   } catch (e) {
-    sendMessage({ success: false, error: e.message || 'Unknown parse error' });
+    sendMessage({ success: false, error: e.message || 'Bilinmeyen hata' });
   }
 })();
 </script>

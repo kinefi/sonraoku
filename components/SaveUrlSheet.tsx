@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { colors } from '../lib/colors';
 import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
 import { fetchRawHtml, buildParserHtml } from '../lib/parser';
@@ -41,7 +42,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     try {
       new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
     } catch {
-      setError('Enter a valid URL');
+      setError('Geçerli bir URL girin');
       return;
     }
 
@@ -82,11 +83,11 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       >
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.heading}>Save article</Text>
+          <Text style={styles.heading}>Yazı Kaydet</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="https://example.com/article"
+            placeholder="https://ornek.com/makale"
             placeholderTextColor="#bbb"
             value={url}
             onChangeText={(t) => {
@@ -111,7 +112,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.saveBtnText}>Save</Text>
+              <Text style={styles.saveBtnText}>Kaydet</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#111',
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   input: {
@@ -157,16 +158,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   error: {
-    color: '#e53e3e',
+    color: colors.error,
     fontSize: 13,
     marginBottom: 8,
   },
   saveBtn: {
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',

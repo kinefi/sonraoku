@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import RenderHtml from 'react-native-render-html';
+import { colors } from '../lib/colors';
 
 type Props = {
   html: string;
@@ -16,15 +17,15 @@ const tagsStyles = {
   p: { marginBottom: 14 },
   blockquote: {
     borderLeftWidth: 3,
-    borderLeftColor: '#534AB7',
+    borderLeftColor: colors.primary,
     paddingLeft: 12,
     marginLeft: 0,
-    color: '#555',
+    color: colors.textSecondary,
   },
-  a: { color: '#534AB7' },
-  h1: { color: '#111', marginBottom: 8 },
-  h2: { color: '#111', marginBottom: 8 },
-  h3: { color: '#111', marginBottom: 8 },
+  a: { color: colors.primary },
+  h1: { color: colors.textPrimary, marginBottom: 8 },
+  h2: { color: colors.textPrimary, marginBottom: 8 },
+  h3: { color: colors.textPrimary, marginBottom: 8 },
   img: { maxWidth: '100%' as const },
 };
 

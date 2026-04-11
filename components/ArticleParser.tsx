@@ -33,7 +33,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
   useEffect(() => {
     // Budget for WebView to load the page
     timeoutRef.current = setTimeout(() => {
-      onErrorRef.current('Parsing timeout');
+      onErrorRef.current('Zaman aşımı');
     }, WEBVIEW_LOAD_TIMEOUT);
 
     return clearTimer;
@@ -53,12 +53,12 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
         // Page loaded — now budget only for Readability execution
         clearTimer();
         timeoutRef.current = setTimeout(() => {
-          onErrorRef.current('Parsing timeout');
+          onErrorRef.current('Zaman aşımı');
         }, PARSE_TIMEOUT);
       }}
       onError={(syntheticEvent) => {
         clearTimer();
-        onErrorRef.current(syntheticEvent.nativeEvent.description ?? 'WebView failed to load');
+        onErrorRef.current(syntheticEvent.nativeEvent.description ?? 'Sayfa yüklenemedi');
       }}
       onMessage={(event) => {
         clearTimer();
@@ -72,10 +72,10 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
               lang: data.lang ?? '',
             });
           } else {
-            onErrorRef.current(data.error ?? 'Parse failed');
+            onErrorRef.current(data.error ?? 'İçerik ayrıştırılamadı');
           }
         } catch (e) {
-          onErrorRef.current('Failed to read parse result');
+          onErrorRef.current('Sonuç okunamadı');
         }
       }}
     />

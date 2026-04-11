@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { getAllArticles, Article } from '../../lib/db';
+import { colors } from '../../lib/colors';
+import { sharedStyles } from '../../lib/sharedStyles';
 import SwipeableArticleCard from '../../components/SwipeableArticleCard';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 
@@ -48,11 +50,11 @@ export default function Index() {
   const filtered = applyFilter(articles, filter);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={sharedStyles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" translucent={false} />
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Sonra Oku</Text>
+      <View style={sharedStyles.header}>
+        <Text style={sharedStyles.headerTitle}>Okunacaklar</Text>
       </View>
 
       {/* Filter chips */}
@@ -94,23 +96,6 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111',
-  },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -118,20 +103,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.border,
   },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.bgMuted,
   },
   chipActive: {
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
   },
   chipText: {
     fontSize: 13,
-    color: '#555',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   chipTextActive: {
@@ -153,7 +138,7 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#aaa',
+    color: colors.textFaint,
   },
   emptyHint: {
     fontSize: 13,
@@ -167,11 +152,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#534AB7',
+    shadowColor: colors.primary,
     shadowOpacity: 0.4,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

@@ -7,10 +7,12 @@ Read it entirely before writing any code.
 
 ## What this app is
 
-A personal "read later" Android app built with Expo. Users save article URLs, the app
-fetches and parses the article content locally, and stores it for offline reading.
-A FastAPI backend will be added later for cross-device sync — but the app must be
-fully functional offline-first without it.
+A personal "read later" Android app built with Expo, targeting Turkish users. Users save
+article URLs, the app fetches and parses the article content locally, and stores it for
+offline reading. A FastAPI backend will be added later for cross-device sync — but the
+app must be fully functional offline-first without it.
+
+**Language:** All user-facing strings must be in Turkish.
 
 ---
 
@@ -25,8 +27,8 @@ fully functional offline-first without it.
 - **@mozilla/readability** — article parsing library (runs inside the hidden WebView); source inlined at build time via `scripts/bundle-readability.js` (runs on `postinstall`)
 - **react-native-render-html** — renders parsed article HTML in the reader screen
 - **expo-file-system** — caches article images locally for true offline reading
-- **expo-speech** — read aloud via device TTS, works offline
-- **react-native-gesture-handler + react-native-reanimated** — swipe gestures on article cards
+- **expo-speech** — read aloud via device TTS, works offline; language detected from article `lang` attribute
+- **react-native-gesture-handler + react-native-reanimated** — swipe gestures on article cards (`Swipeable` — `ReanimatedSwipeable` is incompatible with SDK 55, do not upgrade)
 - **@react-native-async-storage/async-storage** — persists reader font size preference
 - **expo-background-fetch + expo-task-manager** — background sync (Phase 3, not yet implemented)
 - **ESLint** (`eslint-config-expo`) + **Prettier** — linting and formatting
@@ -58,13 +60,16 @@ components/
   SaveUrlSheet.tsx     # bottom sheet triggered by FAB
   SwipeableArticleCard.tsx  # wraps ArticleCard with swipe-to-archive/read
 lib/
-  db.ts               # SQLite setup, schema, CRUD helpers
-  imageCache.ts       # downloads + caches article images via expo-file-system
-  parseQueue.tsx      # React context for the article parse queue
-  parser.ts           # fetchRawHtml + buildParserHtml
-  queryClient.ts      # TanStack Query client setup
-  readabilitySource.ts  # AUTO-GENERATED — do not edit (see scripts/bundle-readability.js)
-  sync.ts             # sync engine (placeholder for Phase 3)
+  colors.ts            # design token colors — single source of truth for all color values
+  db.ts                # SQLite setup, schema, CRUD helpers
+  imageCache.ts        # downloads + caches article images via expo-file-system
+  parseQueue.tsx       # React context for the article parse queue
+  parser.ts            # fetchRawHtml + buildParserHtml
+  queryClient.ts       # TanStack Query client setup
+  readabilitySource.ts # AUTO-GENERATED — do not edit (see scripts/bundle-readability.js)
+  sharedStyles.ts      # shared StyleSheet definitions used across screens
+  sync.ts              # sync engine (placeholder for Phase 3)
+  utils.ts             # shared helpers: getDomain, getReadTime
 scripts/
   bundle-readability.js  # inlines Readability.js as a TS string (runs on postinstall)
 ```
@@ -80,6 +85,7 @@ CREATE TABLE IF NOT EXISTS articles (
   title TEXT,
   excerpt TEXT,
   html_content TEXT,
+  lang TEXT,
   is_read INTEGER DEFAULT 0,
   is_archived INTEGER DEFAULT 0,
   saved_at INTEGER NOT NULL,
@@ -94,6 +100,8 @@ CREATE TABLE IF NOT EXISTS cached_images (
 );
 ```
 
+`lang` was added as a migration — existing installs are handled via `pragma_table_info` check on startup.
+
 ---
 
 ## Article parsing approach
@@ -105,14 +113,16 @@ Flow:
 
 1. User submits a URL
 2. `fetchRawHtml(url)` fetches raw HTML via `fetch()` with a browser User-Agent header
-3. `buildParserHtml(rawHtml, url)` injects Readability.js + the raw HTML into a minimal HTML page
+3. `buildParserHtml(rawHtml, url)` strips `<script>`, `<style>`, `<link>`, `<noscript>` tags to reduce size, then injects Readability.js + the stripped HTML into a minimal HTML page
 4. A hidden `<WebView>` mounts, runs the script, and calls `window.ReactNativeWebView.postMessage()`
-5. The result (`{ title, content, excerpt }`) is received via `onMessage` and saved to SQLite
+5. The result (`{ title, content, excerpt, lang }`) is received via `onMessage` and saved to SQLite; `lang` comes from `doc.documentElement.lang`
 6. The WebView is unmounted after parsing completes
 7. Images in the HTML are downloaded and cached locally via expo-file-system
 
+**Timeouts:** 20s for WebView load + 15s reset on `onLoadEnd` for Readability execution.
+
 **Fallback:** if parsing yields no content (paywalled, JS-rendered SPA), show a
-"open in browser" button — never crash or show a blank reader.
+"Tarayıcıda Aç" button — never crash or show a blank reader.
 
 ---
 
@@ -128,31 +138,32 @@ Flow:
 
 ## UI design decisions
 
+### Design language
+
+- Primary accent: `#534AB7` (purple) — defined as `colors.primary` in `lib/colors.ts`
+- Offline indicator: `#1D9E75` (green dot) — `colors.success`
+- Error/archive: `#e53e3e` (red) — `colors.error`
+- All hardcoded color values must use `lib/colors.ts`; never write hex codes directly
+- Clean, minimal — content-first, no heavy chrome
+- No gradients, no shadows
+
 ### List screen
 
-- Article cards show: domain, title, excerpt, time saved, read time estimate, read/unread badge
+- Article cards show: domain, title, excerpt, time saved, read time estimate, unread dot
 - Green dot on card = offline-ready (content + images cached)
+- Purple dot = unread
 - Read articles are dimmed (opacity 0.65)
-- Filter chips: All / Unread / Offline / Archived
+- Filter chips: Tümü / Okunmamış / Çevrimdışı / Arşivlenmiş
 - FAB (purple +) opens SaveUrlSheet bottom sheet
-- Bottom nav: List / Archive / Recent / Profile
 
 ### Reader screen
 
 - Thin purple progress bar at top tracks scroll position
 - Back button returns to list
-- Top-right actions: bookmark, share, options
-- Domain + "saved offline" indicator below nav
-- Font size controls (A− / A+) in bottom bar
-- Estimated reading time remaining shown bottom-right
+- Domain + çevrimdışı indicator below nav
+- Font size controls (A− / A+) in bottom bar, disabled at min/max limits
+- Read aloud (expo-speech) splits text into ≤4000 char chunks; uses article `lang` for TTS language, falls back to `'tr'`
 - Blockquotes styled with left purple border accent
-
-### Design language
-
-- Primary accent: `#534AB7` (purple)
-- Offline indicator: `#1D9E75` (teal/green dot)
-- Clean, minimal — content-first, no heavy chrome
-- No gradients, no shadows
 
 ---
 
@@ -171,10 +182,12 @@ Flow:
 
 - [x] Image caching via expo-file-system
 - [x] Font size preference persisted via AsyncStorage
-- [x] Read aloud via expo-speech (device TTS, works offline)
-- [x] Swipe gestures (archive, mark read/unread)
+- [x] Read aloud via expo-speech with chunking + language detection
+- [x] Swipe gestures (archive/unarchive, mark read/unread)
 - [x] SaveUrlSheet bottom sheet
 - [x] Parse failure fallback UI
+- [x] Shared color tokens (`lib/colors.ts`) and shared styles (`lib/sharedStyles.ts`)
+- [x] Turkish UI throughout
 
 ### Phase 3 — Backend sync
 
@@ -188,8 +201,10 @@ Flow:
 ## Key constraints
 
 - Android only (no iOS considerations needed)
+- Turkish UI — all user-facing strings must be in Turkish
 - No Mercury Parser or any paid/external parsing API
 - App must be fully usable with no network connection
 - Backend is a future concern — do not block Phase 1 on it
 - Prefer concise, readable TypeScript — no over-engineering
 - Use functional components + hooks throughout
+- Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup

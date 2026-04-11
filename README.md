@@ -1,83 +1,86 @@
-# sonraoku
+# Sonra Oku
 
-A personal read-later Android app built with Expo. Save article URLs, read them offline — no account required, no external parsing API.
+Kişisel bir "sonra oku" Android uygulaması. Expo ile geliştirilmiştir. Makale URL'lerini kaydedin, içerik cihazda ayrıştırılır ve çevrimdışı okunmak üzere yerel veritabanında saklanır. Hesap gerekmez, harici ayrıştırma API'si yoktur.
 
-## Features
+## Özellikler
 
-- Save any article URL and read it offline
-- Article content parsed locally via [@mozilla/readability](https://github.com/mozilla/readability) (no external API)
-- Images downloaded and cached for true offline reading
-- Read aloud using device TTS (works offline)
-- Swipe to archive or mark as read/unread
-- Font size preference persisted across sessions
-- Filter by All / Unread / Offline / Archived
+- Herhangi bir makale URL'ini kaydedin ve çevrimdışı okuyun
+- Makale içeriği [@mozilla/readability](https://github.com/mozilla/readability) ile yerel olarak ayrıştırılır (harici API yok)
+- Görseller gerçek çevrimdışı okuma için indirilip önbelleğe alınır
+- Cihaz TTS ile sesli okuma (çevrimdışı çalışır, makale diline göre dil otomatik seçilir)
+- Kaydırma ile arşivleme veya okundu/okunmadı işaretleme
+- Font boyutu tercihi oturumlar arasında saklanır
+- Tümü / Okunmamış / Çevrimdışı / Arşivlenmiş filtre sekmeleri
 
-## Tech stack
+## Teknoloji
 
 - **Expo SDK 55** — React Native, TypeScript, expo-router
-- **Expo SQLite** — local database, single source of truth
-- **TanStack Query** — state management and cache invalidation
-- **react-native-webview** — runs Readability.js in a hidden WebView
-- **react-native-gesture-handler + reanimated** — swipe gestures
-- **expo-file-system** — image caching
-- **expo-speech** — read aloud
+- **Expo SQLite** — yerel veritabanı, tek kaynak
+- **TanStack Query** — durum yönetimi ve önbellek invalidasyonu
+- **react-native-webview** — Readability.js'i gizli WebView içinde çalıştırır
+- **react-native-gesture-handler + reanimated** — kaydırma hareketleri
+- **expo-file-system** — görsel önbellekleme
+- **expo-speech** — sesli okuma
 
-## Getting started
+## Başlangıç
 
-**Prerequisites:** Node.js, pnpm, Android device with USB debugging enabled (or Android emulator)
+**Gereksinimler:** Node.js, pnpm, USB hata ayıklama etkin Android cihaz (veya Android emülatörü)
 
 ```bash
 pnpm install
 pnpm android
 ```
 
-> `pnpm install` automatically inlines `@mozilla/readability` as a build-time asset via `scripts/bundle-readability.js`.
+> `pnpm install` komutu `scripts/bundle-readability.js` aracılığıyla `@mozilla/readability`'yi otomatik olarak derleme zamanı varlığı olarak dahil eder.
 
-## Scripts
+## Komutlar
 
-| Command | Description |
-|---------|-------------|
-| `pnpm start` | Start Metro bundler |
-| `pnpm android` | Build and run on Android |
-| `pnpm lint` | Run ESLint |
-| `pnpm format` | Run Prettier |
-| `pnpm doctor` | Run expo-doctor |
-| `pnpm fix` | Fix Expo package version mismatches |
+| Komut | Açıklama |
+|-------|----------|
+| `pnpm start` | Metro bundler'ı başlat |
+| `pnpm android` | Android'de derle ve çalıştır |
+| `pnpm lint` | ESLint çalıştır |
+| `pnpm format` | Prettier çalıştır |
+| `pnpm doctor` | expo-doctor çalıştır |
+| `pnpm fix` | Expo paket sürümü uyumsuzluklarını düzelt |
 
-## Project structure
+## Proje yapısı
 
 ```
 app/
-  _layout.tsx           # root layout — QueryClient, GestureHandler, parse queue
+  _layout.tsx           # kök layout — QueryClient, GestureHandler, parse queue
   (tabs)/
-    index.tsx           # article list screen
+    index.tsx           # makale listesi ekranı
     settings.tsx
-  article/[id].tsx      # reader screen
+  article/[id].tsx      # okuyucu ekranı
 components/
   ArticleCard.tsx
-  ArticleParser.tsx     # hidden WebView that runs Readability
+  ArticleParser.tsx     # Readability'yi çalıştıran gizli WebView
   ReaderView.tsx
   SaveUrlSheet.tsx
   SwipeableArticleCard.tsx
 lib/
-  db.ts                 # SQLite schema + CRUD
-  imageCache.ts         # image downloading + caching
+  colors.ts             # tasarım token renkleri
+  db.ts                 # SQLite şema + CRUD
+  imageCache.ts         # görsel indirme + önbellekleme
   parser.ts             # fetchRawHtml + buildParserHtml
-  parseQueue.tsx        # React context for parse queue
+  parseQueue.tsx        # parse queue React context
   queryClient.ts
+  sharedStyles.ts       # ekranlar arası paylaşılan stiller
+  utils.ts              # getDomain, getReadTime
 scripts/
-  bundle-readability.js # inlines Readability.js on postinstall
+  bundle-readability.js # postinstall'da Readability.js'i dahil eder
 ```
 
-## Updating Readability
+## Readability güncelleme
 
 ```bash
 pnpm update @mozilla/readability
-# postinstall re-generates lib/readabilitySource.ts automatically
+# postinstall lib/readabilitySource.ts dosyasını otomatik yeniden oluşturur
 ```
 
-## Roadmap
+## Yol haritası
 
-- [x] Phase 1 — Offline core loop
-- [x] Phase 2 — Polish (image caching, swipe gestures, read aloud, font size)
-- [ ] Phase 3 — FastAPI backend + JWT auth + delta sync
+- [x] Faz 1 — Çevrimdışı çekirdek döngü
+- [x] Faz 2 — Geliştirmeler (görsel önbellekleme, kaydırma hareketleri, sesli okuma, font boyutu, dil desteği)
+- [ ] Faz 3 — FastAPI backend + JWT auth + delta sync

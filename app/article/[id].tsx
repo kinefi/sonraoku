@@ -19,6 +19,8 @@ import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '../../lib/queryClient';
 import * as Speech from 'expo-speech';
 import { getArticleById, markArticleRead } from '../../lib/db';
+import { colors } from '../../lib/colors';
+import { getDomain, getReadTime } from '../../lib/utils';
 import { useParseQueue } from '../../lib/parseQueue';
 import { fetchRawHtml, buildParserHtml } from '../../lib/parser';
 import ReaderView from '../../components/ReaderView';
@@ -27,21 +29,6 @@ const FONT_SIZE_KEY = 'reader_font_size';
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 36;
-
-function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function getReadTime(html: string | null): string {
-  if (!html) return '';
-  const words = html.replace(/<[^>]+>/g, '').split(/\s+/).length;
-  const mins = Math.max(1, Math.ceil(words / 200));
-  return `${mins} min read`;
-}
 
 function splitIntoChunks(text: string, maxLen: number): string[] {
   const chunks: string[] = [];
@@ -103,17 +90,19 @@ export default function ArticleScreen() {
   const [isFetching, setIsFetching] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error'>('idle');
   const { addToQueue } = useParseQueue();
+  const fetchStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    AsyncStorage.getItem(FONT_SIZE_KEY).then((val) => {
-      if (val) setFontSize(parseInt(val, 10));
-    });
+    AsyncStorage.getItem(FONT_SIZE_KEY)
+      .then((val) => { if (val) setFontSize(parseInt(val, 10)); })
+      .catch(() => {});
   }, []);
 
-  // Stop speech when leaving the screen
+  // Stop speech and clear timers when leaving the screen
   useEffect(() => {
     return () => {
       Speech.stop();
+      if (fetchStatusTimerRef.current) clearTimeout(fetchStatusTimerRef.current);
     };
   }, []);
 
@@ -170,19 +159,14 @@ export default function ArticleScreen() {
     setIsFetching(true);
     setFetchStatus('fetching');
     try {
-      console.log('Starting fetch for article:', article.id);
       const rawHtml = await fetchRawHtml(article.url);
-      console.log('Raw HTML length:', rawHtml.length);
       const parserHtml = buildParserHtml(rawHtml, article.url);
-      console.log('Parser HTML length:', parserHtml.length);
       addToQueue({ id: article.id, html: parserHtml, url: article.url });
-      console.log('Added to parse queue');
       setFetchStatus('success');
-      setTimeout(() => setFetchStatus('idle'), 3000);
-    } catch (error) {
-      console.warn('Failed to fetch article content:', error);
+      fetchStatusTimerRef.current = setTimeout(() => setFetchStatus('idle'), 3000);
+    } catch {
       setFetchStatus('error');
-      setTimeout(() => setFetchStatus('idle'), 3000);
+      fetchStatusTimerRef.current = setTimeout(() => setFetchStatus('idle'), 3000);
     } finally {
       setIsFetching(false);
     }
@@ -239,11 +223,11 @@ export default function ArticleScreen() {
         <View style={styles.fallback}>
           <Text style={styles.fallbackText}>
             {article.title
-              ? `"${article.title}" couldn't be parsed.`
-              : 'Article content not available.'}
+              ? `"${article.title}" yüklenemedi.`
+              : 'Yazı içeriği mevcut değil.'}
           </Text>
           <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(article.url)}>
-            <Text style={styles.openBtnText}>Open in Browser</Text>
+            <Text style={styles.openBtnText}>Tarayıcıda Aç</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.fetchBtn, isFetching && styles.fetchBtnDisabled]} 
@@ -253,11 +237,11 @@ export default function ArticleScreen() {
             {isFetching ? (
               <ActivityIndicator size="small" color="#534AB7" />
             ) : fetchStatus === 'success' ? (
-              <Text style={styles.fetchBtnTextSuccess}>✓ Fetch Complete</Text>
+              <Text style={styles.fetchBtnTextSuccess}>✓ İndirme Tamamlandı</Text>
             ) : fetchStatus === 'error' ? (
-              <Text style={styles.fetchBtnTextError}>✗ Fetch Failed</Text>
+              <Text style={styles.fetchBtnTextError}>✗ İndirme Başarısız</Text>
             ) : (
-              <Text style={styles.fetchBtnText}>Fetch for Offline Reading</Text>
+              <Text style={styles.fetchBtnText}>Çevrimdışı İndir</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -320,11 +304,11 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    backgroundColor: '#eee',
+    backgroundColor: colors.border,
   },
   progressBar: {
     height: 3,
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
   },
   nav: {
     flexDirection: 'row',
@@ -333,14 +317,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.border,
   },
   backBtn: {
     paddingVertical: 4,
   },
   backText: {
     fontSize: 15,
-    color: '#534AB7',
+    color: colors.primary,
     fontWeight: '500',
   },
   navRight: {
@@ -349,7 +333,7 @@ const styles = StyleSheet.create({
   },
   shareText: {
     fontSize: 15,
-    color: '#534AB7',
+    color: colors.primary,
   },
   metaRow: {
     flexDirection: 'row',
@@ -358,11 +342,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: colors.borderLight,
   },
   domain: {
     fontSize: 12,
-    color: '#888',
+    color: colors.textMuted,
   },
   offlineIndicator: {
     flexDirection: 'row',
@@ -373,15 +357,15 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1D9E75',
+    backgroundColor: colors.success,
   },
   offlineText: {
     fontSize: 11,
-    color: '#1D9E75',
+    color: colors.success,
   },
   articleTitle: {
     fontWeight: '700',
-    color: '#111',
+    color: colors.textPrimary,
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
@@ -396,11 +380,11 @@ const styles = StyleSheet.create({
   },
   fallbackText: {
     fontSize: 15,
-    color: '#888',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   openBtn: {
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
@@ -411,7 +395,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fetchBtn: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.bgMuted,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
@@ -421,17 +405,17 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   fetchBtnText: {
-    color: '#534AB7',
+    color: colors.primary,
     fontSize: 15,
     fontWeight: '600',
   },
   fetchBtnTextSuccess: {
-    color: '#1D9E75',
+    color: colors.success,
     fontSize: 15,
     fontWeight: '600',
   },
   fetchBtnTextError: {
-    color: '#E53E3E',
+    color: colors.error,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -442,7 +426,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colors.border,
   },
   fontControls: {
     flexDirection: 'row',
@@ -452,7 +436,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.bgMuted,
   },
   fontBtnText: {
     fontSize: 14,
@@ -460,15 +444,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   fontBtnDisabled: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: colors.bgPage,
   },
   fontBtnTextDisabled: {
     color: '#ccc',
-  },
-  rightControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
   },
   fabActionRow: {
     position: 'absolute',
@@ -481,11 +460,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#534AB7',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#534AB7',
+    shadowColor: colors.primary,
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -498,6 +477,6 @@ const styles = StyleSheet.create({
   },
   readTime: {
     fontSize: 12,
-    color: '#aaa',
+    color: colors.textFaint,
   },
 });
