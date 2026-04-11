@@ -6,6 +6,7 @@ export type ParseResult = {
   title: string;
   content: string;
   excerpt: string;
+  lang: string;
 };
 
 type Props = {
@@ -14,21 +15,28 @@ type Props = {
   onError: (error: string) => void;
 };
 
+const WEBVIEW_LOAD_TIMEOUT = 20000;
+const PARSE_TIMEOUT = 15000;
+
 export default function ArticleParser({ html, onParsed, onError }: Props) {
-  console.log('ArticleParser mounting, HTML length:', html.length);
-  const timeoutRef = useRef<NodeJS.Timeout>(10000);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
+  const clearTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
 
   useEffect(() => {
+    // Budget for WebView to load the page
     timeoutRef.current = setTimeout(() => {
-      //console.error('ArticleParser timeout after 60 seconds');
-      onError('Parsing timeout');
-    }, 10000);
+      onErrorRef.current('Parsing timeout');
+    }, WEBVIEW_LOAD_TIMEOUT);
 
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+    return clearTimer;
   }, []);
 
   return (
@@ -41,45 +49,33 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
       allowFileAccess={true}
       allowUniversalAccessFromFileURLs={true}
       mixedContentMode="always"
-      onLoadStart={() => console.log('WebView load started')}
       onLoadEnd={() => {
-        console.log('WebView load ended');
-        setTimeout(() => {
-          console.log('Waiting for message from WebView...');
-        }, 100);
+        // Page loaded — now budget only for Readability execution
+        clearTimer();
+        timeoutRef.current = setTimeout(() => {
+          onErrorRef.current('Parsing timeout');
+        }, PARSE_TIMEOUT);
       }}
       onError={(syntheticEvent) => {
-        const { nativeEvent } = syntheticEvent;
-        console.error('WebView error:', nativeEvent);
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-        onError('WebView failed to load');
+        clearTimer();
+        onErrorRef.current(syntheticEvent.nativeEvent.description ?? 'WebView failed to load');
       }}
       onMessage={(event) => {
-        console.log('WebView message received, data:', event.nativeEvent.data);
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
+        clearTimer();
         try {
-          const messageStr = event.nativeEvent.data;
-          console.log('Message type:', typeof messageStr, 'length:', messageStr.length);
-          const data = JSON.parse(messageStr);
-          console.log('Parsed message, success:', data.success);
+          const data = JSON.parse(event.nativeEvent.data);
           if (data.success) {
-            console.log('Parse successful, title:', data.title, 'content length:', data.content.length);
             onParsed({
               title: data.title ?? '',
               content: data.content ?? '',
               excerpt: data.excerpt ?? '',
+              lang: data.lang ?? '',
             });
           } else {
-            console.error('Parse failed:', data.error);
-            onError(data.error ?? 'Parse failed');
+            onErrorRef.current(data.error ?? 'Parse failed');
           }
         } catch (e) {
-          console.error('Failed to parse WebView message:', e, 'raw:', event.nativeEvent.data);
-          onError('Failed to read parse result');
+          onErrorRef.current('Failed to read parse result');
         }
       }}
     />

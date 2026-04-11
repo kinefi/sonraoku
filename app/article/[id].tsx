@@ -43,6 +43,21 @@ function getReadTime(html: string | null): string {
   return `${mins} min read`;
 }
 
+function splitIntoChunks(text: string, maxLen: number): string[] {
+  const chunks: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > maxLen) {
+    let cut = remaining.lastIndexOf('. ', maxLen);
+    if (cut === -1) cut = remaining.lastIndexOf(' ', maxLen);
+    if (cut === -1) cut = maxLen;
+    else cut += 1;
+    chunks.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trim();
+  }
+  if (remaining.length > 0) chunks.push(remaining);
+  return chunks;
+}
+
 function htmlToPlainText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -64,6 +79,25 @@ export default function ArticleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const speechChunksRef = useRef<string[]>([]);
+  const speechChunkIndexRef = useRef(0);
+  const speakNextChunkRef = useRef<() => void>(() => {});
+  speakNextChunkRef.current = () => {
+    const idx = speechChunkIndexRef.current;
+    const chunks = speechChunksRef.current;
+    if (idx >= chunks.length) {
+      setIsSpeaking(false);
+      return;
+    }
+    speechChunkIndexRef.current = idx + 1;
+    Speech.speak(chunks[idx], {
+      language: article?.lang || 'tr',
+      rate: 0.9,
+      onDone: () => speakNextChunkRef.current(),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
   const scrollProgress = useRef(new Animated.Value(0)).current;
   const [scrollBarWidth, setScrollBarWidth] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
@@ -98,15 +132,6 @@ export default function ArticleScreen() {
     enabled: !!id,
   });
 
-  // Debug: log when article data changes
-  useEffect(() => {
-    console.log('Article data updated:', {
-      id: article?.id,
-      hasContent: !!article?.html_content,
-      contentLength: article?.html_content?.length,
-      title: article?.title?.substring(0, 30)
-    });
-  }, [article]);
 
   useEffect(() => {
     if (article && !article.is_read) {
@@ -119,19 +144,17 @@ export default function ArticleScreen() {
   const toggleSpeech = useCallback(async () => {
     if (isSpeaking) {
       await Speech.stop();
+      speechChunksRef.current = [];
+      speechChunkIndexRef.current = 0;
       setIsSpeaking(false);
       return;
     }
     if (!article?.html_content) return;
     const text = htmlToPlainText(article.html_content);
-    Speech.speak(text, {
-      language: 'en',
-      rate: 0.9,
-      onStart: () => setIsSpeaking(true),
-      onDone: () => setIsSpeaking(false),
-      onStopped: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
+    speechChunksRef.current = splitIntoChunks(text, 4000);
+    speechChunkIndexRef.current = 0;
+    setIsSpeaking(true);
+    speakNextChunkRef.current();
   }, [isSpeaking, article?.html_content]);
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -201,7 +224,7 @@ export default function ArticleScreen() {
         {article.html_content && (
           <View style={styles.offlineIndicator}>
             <View style={styles.offlineDot} />
-            <Text style={styles.offlineText}>saved offline</Text>
+            <Text style={styles.offlineText}>çevrimdışı</Text>
           </View>
         )}
       </View>
@@ -243,11 +266,19 @@ export default function ArticleScreen() {
       {/* Bottom bar */}
       <View style={styles.bottomBar}>
         <View style={styles.fontControls}>
-          <TouchableOpacity style={styles.fontBtn} onPress={() => changeFontSize(-2)}>
-            <Text style={styles.fontBtnText}>A−</Text>
+          <TouchableOpacity
+            style={[styles.fontBtn, fontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
+            onPress={() => changeFontSize(-2)}
+            disabled={fontSize <= FONT_SIZE_MIN}
+          >
+            <Text style={[styles.fontBtnText, fontSize <= FONT_SIZE_MIN && styles.fontBtnTextDisabled]}>A−</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.fontBtn} onPress={() => changeFontSize(2)}>
-            <Text style={[styles.fontBtnText, { fontSize: 16 }]}>A+</Text>
+          <TouchableOpacity
+            style={[styles.fontBtn, fontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
+            onPress={() => changeFontSize(2)}
+            disabled={fontSize >= FONT_SIZE_MAX}
+          >
+            <Text style={[styles.fontBtnText, { fontSize: 16 }, fontSize >= FONT_SIZE_MAX && styles.fontBtnTextDisabled]}>A+</Text>
           </TouchableOpacity>
         </View>
         <Text style={styles.readTime}>{getReadTime(article.html_content)}</Text>
@@ -427,6 +458,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
+  },
+  fontBtnDisabled: {
+    backgroundColor: '#f8f8f8',
+  },
+  fontBtnTextDisabled: {
+    color: '#ccc',
   },
   rightControls: {
     flexDirection: 'row',

@@ -42,11 +42,11 @@ export default function ArticleCard({ article, onPress }: Props) {
       activeOpacity={0.7}
     >
       <View style={styles.topRow}>
-        <Text style={styles.domain}>{getDomain(article.url)}</Text>
-        <View style={styles.badges}>
-          {isOffline && <View style={styles.offlineDot} />}
+        <View style={styles.leftGroup}>
           {!isRead && <View style={styles.unreadBadge} />}
+          <Text style={styles.domain}>{getDomain(article.url)}</Text>
         </View>
+        {isOffline && <View style={styles.offlineDot} />}
       </View>
 
       <Text style={styles.title} numberOfLines={2}>
@@ -92,6 +92,11 @@ const styles = StyleSheet.create({
     textTransform: 'lowercase',
   },
   badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

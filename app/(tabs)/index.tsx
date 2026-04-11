@@ -77,8 +77,8 @@ export default function Index() {
         contentContainerStyle={filtered.length === 0 ? styles.emptyList : styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No articles yet.</Text>
-            <Text style={styles.emptyHint}>Tap + to save your first article.</Text>
+            <Text style={styles.emptyText}>Herhangi bir yazı yok.</Text>
+            <Text style={styles.emptyHint}>İlk yazınızı eklemek için + tuşuna basın.</Text>
           </View>
         }
       />

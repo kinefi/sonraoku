@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 import RenderHtml from 'react-native-render-html';
 
@@ -30,13 +30,14 @@ const tagsStyles = {
 
 export default function ReaderView({ html, fontSize }: Props) {
   const { width } = useWindowDimensions();
+  const baseStyle = useMemo(() => ({ fontSize }), [fontSize]);
 
   return (
     <RenderHtml
       contentWidth={width}
       source={{ html }}
       tagsStyles={tagsStyles}
-      baseStyle={{ fontSize }}
+      baseStyle={baseStyle}
     />
   );
 }

@@ -17,10 +17,8 @@ export default function RootLayout() {
   }, []);
 
   const handleParsed = useCallback(async (id: string, result: ParseResult) => {
-    console.log('Parse completed for article:', id, 'title:', result.title.substring(0, 50) + '...');
     const cachedHtml = await cacheArticleImages(result.content, id);
-    updateArticleContent(id, result.title, result.excerpt, cachedHtml);
-    console.log('Updated database, invalidating queries');
+    updateArticleContent(id, result.title, result.excerpt, cachedHtml, result.lang);
     queryClient.invalidateQueries({ queryKey: ['articles'] });
     queryClient.invalidateQueries({ queryKey: ['article', id] });
     setParseQueue((prev) => prev.slice(1));

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { queryClient } from '../lib/queryClient';
-import { Article, archiveArticle, markArticleRead, markArticleUnread } from '../lib/db';
+import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '../lib/db';
 import ArticleCard from './ArticleCard';
 
 type Props = {
@@ -28,10 +28,14 @@ export default function SwipeableArticleCard({ article, onPress }: Props) {
     swipeableRef.current?.close();
   }
 
-  function handleArchive() {
-    archiveArticle(article.id);
+  function handleToggleArchive() {
+    if (article.is_archived) {
+      unarchiveArticle(article.id);
+      swipeableRef.current?.close();
+    } else {
+      archiveArticle(article.id);
+    }
     invalidate();
-    // No need to close — article disappears from list immediately
   }
 
   function renderLeftActions() {
@@ -46,10 +50,12 @@ export default function SwipeableArticleCard({ article, onPress }: Props) {
   }
 
   function renderRightActions() {
+    const label = article.is_archived ? 'Unarchive' : 'Archive';
+    const icon = article.is_archived ? 'arrow-undo-outline' : 'archive-outline';
     return (
       <View style={[styles.action, styles.archiveAction]}>
-        <Ionicons name="archive-outline" size={22} color="#fff" />
-        <Text style={styles.actionText}>Archive</Text>
+        <Ionicons name={icon} size={22} color="#fff" />
+        <Text style={styles.actionText}>{label}</Text>
       </View>
     );
   }
@@ -61,7 +67,7 @@ export default function SwipeableArticleCard({ article, onPress }: Props) {
       renderRightActions={renderRightActions}
       onSwipeableOpen={(direction) => {
         if (direction === 'left') handleToggleRead();
-        if (direction === 'right') handleArchive();
+        if (direction === 'right') handleToggleArchive();
       }}
       friction={2}
       leftThreshold={60}
