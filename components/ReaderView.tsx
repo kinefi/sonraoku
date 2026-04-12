@@ -4,7 +4,7 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Highlight } from '../lib/db';
 
 export type ReaderMessage =
-  | { type: 'highlight'; text: string; contextBefore: string; contextAfter: string }
+  | { type: 'highlight'; id: string; text: string; contextBefore: string; contextAfter: string }
   | { type: 'delete-highlight'; id: string };
 
 type Props = {
@@ -15,6 +15,7 @@ type Props = {
   highlights: Highlight[];
   onMessage: (msg: ReaderMessage) => void;
   onScrollProgress: (progress: number) => void;
+  scrollToHighlightId?: string | null;
 };
 
 function buildReaderHtml(
@@ -46,6 +47,10 @@ body {
   word-break: break-word;
   overflow-wrap: break-word;
 }
+#content {
+  -webkit-user-select: text;
+  user-select: text;
+}
 h1.title {
   font-size: ${fontSize + 6}px;
   font-weight: 700;
@@ -70,64 +75,47 @@ pre { padding: 12px; overflow-x: auto; }
 code { padding: 1px 4px; }
 mark { border-radius: 2px; padding: 0 1px; cursor: pointer; }
 #toolbar {
-  position: fixed;
+  position: absolute;
   display: none;
   background: #1a1a1a;
   border-radius: 10px;
-  padding: 8px 10px;
-  gap: 10px;
+  padding: 6px;
   flex-direction: row;
   align-items: center;
   z-index: 9999;
   box-shadow: 0 4px 16px rgba(0,0,0,0.35);
 }
 #toolbar.visible { display: flex; }
-.cbtn {
-  width: 26px; height: 26px;
-  border-radius: 13px;
-  border: 2.5px solid rgba(255,255,255,0.2);
+#save-btn, #del-btn {
+  width: 36px; height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  font-size: 22px;
   cursor: pointer;
-  flex-shrink: 0;
-  transition: border-color 0.1s;
-}
-.cbtn.default-color { border-color: rgba(255,255,255,0.9); }
-#del-btn {
-  color: #ff6b6b;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
   user-select: none;
-  display: none;
 }
+#save-btn { background: ${defaultColor}; color: #000; }
+#del-btn { background: #ff4d4d; color: #fff; display: none; }
 </style>
 </head>
 <body>
 <h1 class="title">${escapedTitle}</h1>
 <div id="content">${content}</div>
 <div id="toolbar" onmousedown="event.preventDefault()">
-  <div class="cbtn" data-color="#FFE066" style="background:#FFE066"></div>
-  <div class="cbtn" data-color="#A8F0C0" style="background:#A8F0C0"></div>
-  <div class="cbtn" data-color="#A8C8F8" style="background:#A8C8F8"></div>
-  <div class="cbtn" data-color="#F8A8C8" style="background:#F8A8C8"></div>
-  <span id="del-btn">&#x2715;</span>
+  <div id="save-btn">&#x270E;</div>
+  <div id="del-btn">&#x2715;</div>
 </div>
 <script>
 (function() {
 var CONTEXT = 30;
 var toolbar = document.getElementById('toolbar');
+var saveBtn = document.getElementById('save-btn');
 var delBtn = document.getElementById('del-btn');
-var colorBtns = toolbar.querySelectorAll('.cbtn');
 var pending = null;
 var activeMark = null;
 var defaultColor = ${defaultColorJson};
-
-function markDefaultBtn() {
-  for (var i = 0; i < colorBtns.length; i++) {
-    colorBtns[i].classList.toggle('default-color', colorBtns[i].dataset.color === defaultColor);
-  }
-}
-markDefaultBtn();
 
 function send(msg) {
   window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(msg));
@@ -149,8 +137,9 @@ function buildMap(root) {
   var ns = textNodes(root);
   var full = '', map = [];
   for (var i = 0; i < ns.length; i++) {
+    var txt = ns[i].textContent.replace(/\u00a0/g, ' ');
     map.push({ n: ns[i], s: full.length });
-    full += ns[i].textContent;
+    full += txt;
   }
   return { full: full, map: map };
 }
@@ -180,11 +169,13 @@ function wrapRange(range, id, color) {
 function findAndWrap(text, ctxBefore, ctxAfter, id, color) {
   var content = document.getElementById('content');
   var tm = buildMap(content);
-  var search = ctxBefore + text;
+  var t = text.replace(/\u00a0/g, ' ');
+  var cb = ctxBefore.replace(/\u00a0/g, ' ');
+  var search = cb + t;
   var idx = tm.full.indexOf(search);
-  var start = idx === -1 ? tm.full.indexOf(text) : idx + ctxBefore.length;
+  var start = idx === -1 ? tm.full.indexOf(t) : idx + cb.length;
   if (start === -1) return false;
-  var end = start + text.length;
+  var end = start + t.length;
   var sn = nodeAt(tm.map, start);
   var en = nodeAt(tm.map, end - 1);
   if (!sn || !en) return false;
@@ -199,7 +190,7 @@ function injectHighlights(hs) {
   for (var i = 0; i < hs.length; i++) {
     try {
       findAndWrap(hs[i].selected_text, hs[i].context_before, hs[i].context_after, hs[i].id, defaultColor);
-    } catch (e) {}
+    } catch(e) { console.error(e) }
   }
 }
 
@@ -208,9 +199,14 @@ function injectHighlights(hs) {
 // so we must read getSelection() synchronously rather than deferring to a timer.
 function captureFromSel() {
   var sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !sel.toString().trim()) {
+    if (!activeMark) dismissToolbar();
+    return;
+  }
   try {
     var range = sel.getRangeAt(0);
+    if (!document.getElementById('content').contains(range.commonAncestorContainer)) return;
+
     var text = sel.toString().trim();
     var content = document.getElementById('content');
     var preR = document.createRange();
@@ -220,14 +216,14 @@ function captureFromSel() {
     postR.selectNodeContents(content);
     postR.setStart(range.endContainer, range.endOffset);
     pending = {
-      text: text,
-      ctxBefore: preR.toString().slice(-CONTEXT),
-      ctxAfter: postR.toString().slice(0, CONTEXT)
+      text: text.replace(/\u00a0/g, ' '),
+      ctxBefore: preR.toString().slice(-CONTEXT).replace(/\u00a0/g, ' '),
+      ctxAfter: postR.toString().slice(0, CONTEXT).replace(/\u00a0/g, ' ')
     };
     activeMark = null;
-    showColorBtns();
+    showSaveBtn();
     positionToolbar(range.getBoundingClientRect());
-  } catch(e) {}
+  } catch(e) { console.error(e) }
 }
 var selTimer;
 // selectionchange fires many times while handles are dragged — debounce for desktop
@@ -245,7 +241,6 @@ document.addEventListener('touchend', function(e) {
   clearTimeout(selTimer);
   captureFromSel();
 });
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
 document.addEventListener('click', function(e) {
   if (!toolbar.contains(e.target) && e.target.tagName !== 'MARK') dismissToolbar();
@@ -262,37 +257,38 @@ function onMarkClick(e) {
 }
 
 function positionToolbar(rect) {
-  var top = rect.top + window.scrollY - 50;
-  if (top < window.scrollY + 10) top = rect.bottom + window.scrollY + 10;
-  var left = Math.max(10, Math.min(rect.left, window.innerWidth - 200));
+  var top = rect.bottom + window.scrollY + 12;
+  var left = rect.left + (rect.width / 2) - 24;
+  left = Math.max(10, Math.min(left, window.innerWidth - 58));
   toolbar.style.top = top + 'px';
   toolbar.style.left = left + 'px';
   toolbar.classList.add('visible');
 }
 
-function showColorBtns() {
-  for (var i = 0; i < colorBtns.length; i++) colorBtns[i].style.display = '';
+function showSaveBtn() {
+  saveBtn.style.display = 'flex';
   delBtn.style.display = 'none';
 }
 
 function showDeleteBtn() {
-  for (var i = 0; i < colorBtns.length; i++) colorBtns[i].style.display = 'none';
-  delBtn.style.display = 'inline';
+  saveBtn.style.display = 'none';
+  delBtn.style.display = 'flex';
 }
 
 function dismissToolbar() {
   toolbar.classList.remove('visible');
-  showColorBtns();
+  showSaveBtn();
   pending = null;
   activeMark = null;
 }
 
 function applyHL(color) {
   if (!pending) return;
-  var ok = findAndWrap(pending.text, pending.ctxBefore, pending.ctxAfter, null, color);
+  var id = 'hl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9);
+  var ok = findAndWrap(pending.text, pending.ctxBefore, pending.ctxAfter, id, color);
   if (!ok) { dismissToolbar(); return; }
   window.getSelection().removeAllRanges();
-  var msg = { type: 'highlight', text: pending.text, contextBefore: pending.ctxBefore, contextAfter: pending.ctxAfter };
+  var msg = { type: 'highlight', id: id, text: pending.text, contextBefore: pending.ctxBefore, contextAfter: pending.ctxAfter };
   dismissToolbar();
   send(msg);
 }
@@ -307,14 +303,20 @@ function deleteMark() {
   send({ type: 'delete-highlight', id: id });
 }
 
-for (var i = 0; i < colorBtns.length; i++) {
-  (function(btn) {
-    // touchend fires before click and prevents the synthesized click on Android,
-    // ensuring applyHL runs exactly once even if the selection is cleared by then
-    btn.addEventListener('touchend', function(e) { e.preventDefault(); applyHL(btn.dataset.color); });
-    btn.addEventListener('click', function() { applyHL(btn.dataset.color); });
-  })(colorBtns[i]);
-}
+window.scrollToHighlight = function(id) {
+  var el = document.querySelector('mark[data-id="' + id + '"]');
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Brief flash for visual feedback
+    var old = el.style.backgroundColor;
+    el.style.backgroundColor = '#fff';
+    el.style.outline = '2px solid ' + defaultColor;
+    setTimeout(function() { el.style.backgroundColor = old; el.style.outline = 'none'; }, 800);
+  }
+};
+
+saveBtn.addEventListener('touchend', function(e) { e.preventDefault(); applyHL(defaultColor); });
+saveBtn.addEventListener('click', function() { applyHL(defaultColor); });
 delBtn.addEventListener('touchend', function(e) { e.preventDefault(); deleteMark(); });
 delBtn.addEventListener('click', deleteMark);
 
@@ -333,6 +335,7 @@ export default function ReaderView({
   highlights,
   onMessage,
   onScrollProgress,
+  scrollToHighlightId,
 }: Props) {
   const webViewRef = useRef<WebView>(null);
   const loaded = useRef(false);
@@ -341,7 +344,6 @@ export default function ReaderView({
     () => ({ html: buildReaderHtml(title, html, fontSize, defaultColor, highlights) }),
     // highlights intentionally omitted — WebView manages visual state after initial render;
     // fontSize intentionally omitted — changes are injected via JS to preserve scroll position
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [html, title, defaultColor]
   );
 
@@ -354,6 +356,13 @@ export default function ReaderView({
     );
   }, [fontSize]);
 
+  // Handle scrolling to a specific highlight
+  useEffect(() => {
+    if (scrollToHighlightId && loaded.current) {
+      webViewRef.current?.injectJavaScript(`window.scrollToHighlight('${scrollToHighlightId}'); true;`);
+    }
+  }, [scrollToHighlightId]);
+
   function handleMessage(e: WebViewMessageEvent) {
     try {
       const data = JSON.parse(e.nativeEvent.data);
@@ -362,8 +371,8 @@ export default function ReaderView({
       } else {
         onMessage(data as ReaderMessage);
       }
-    } catch {
-      // ignore malformed messages
+    } catch(e) {
+      console.error(e);
     }
   }
 

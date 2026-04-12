@@ -6,11 +6,16 @@ import {
   Linking,
   StyleSheet,
   Animated,
+  Modal,
+  FlatList,
+  TextInput,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as Crypto from 'expo-crypto';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Speech from 'expo-speech';
@@ -18,9 +23,10 @@ import { queryClient } from '../../lib/queryClient';
 import {
   getArticleById, markArticleRead,
   getHighlightsByArticle, insertHighlight, deleteHighlight,
-  Highlight,
+  getTagsForArticle, addTagToArticle, removeTagFromArticle,
 } from '../../lib/db';
 import { colors, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HIGHLIGHT_COLORS, HighlightColor } from '../../lib/colors';
+import { LANGUAGES } from '../../lib/i18n';
 import { getDomain, getReadTime } from '../../lib/utils';
 import { useParseQueue } from '../../lib/parseQueue';
 import { fetchRawHtml, buildParserHtml } from '../../lib/parser';
@@ -72,7 +78,7 @@ function htmlToPlainText(html: string): string {
 }
 
 export default function ArticleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
   const { t } = useLanguage();
   const [fontSize, setFontSize] = useState(_fontSizeCache ?? FONT_SIZE_DEFAULT);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -111,21 +117,35 @@ export default function ArticleScreen() {
   const [defaultColor, setDefaultColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
   const { addToQueue } = useParseQueue();
   const fetchStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showHighlights, setShowHighlights] = useState(false);
+  const [showTags, setShowTags] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [targetHighlightId, setTargetHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(FONT_SIZE_KEY)
       .then((val) => {
         if (val) {
           const parsed = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)));
-          _fontSizeCache = parsed;
-          setFontSize(parsed);
+          if (parsed !== _fontSizeCache) {
+            _fontSizeCache = parsed;
+            setFontSize(parsed);
+          }
         }
       })
-      .catch(() => { });
+      .catch((e) => { console.error(e) });
     AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
       .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setDefaultColor(val as HighlightColor); })
-      .catch(() => { });
+      .catch((e) => { console.error(e) });
   }, []);
+
+  useEffect(() => {
+    if (highlightId) {
+      setTargetHighlightId(highlightId);
+      const timer = setTimeout(() => setTargetHighlightId(null), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId]);
 
   // Stop speech and clear timers when leaving the screen
   useEffect(() => {
@@ -177,29 +197,34 @@ export default function ArticleScreen() {
     speakNextChunkRef.current();
   }, [isSpeaking, article?.html_content]);
 
-  const initialHighlights = React.useMemo<Highlight[]>(
-    () => (article?.id ? getHighlightsByArticle(article.id) : []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [article?.id]
-  );
+  const { data: highlights = [] } = useQuery({
+    queryKey: ['highlights', id],
+    queryFn: () => getHighlightsByArticle(id!),
+    enabled: !!id,
+  });
+
+  const { data: tags = [] } = useQuery({
+    queryKey: ['tags', id],
+    queryFn: () => getTagsForArticle(id!),
+    enabled: !!id,
+  });
 
   function handleScrollProgress(progress: number) {
     scrollProgress.setValue(progress);
   }
 
   function generateId(): string {
-    return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-      const r = (Math.random() * 16) | 0;
-      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-    });
+    return Crypto.randomUUID();
   }
 
   function handleReaderMessage(msg: ReaderMessage) {
     if (!article) return;
     if (msg.type === 'highlight') {
-      insertHighlight(generateId(), article.id, msg.text, msg.contextBefore, msg.contextAfter);
+      insertHighlight(msg.id, article.id, msg.text, msg.contextBefore, msg.contextAfter);
+      queryClient.invalidateQueries({ queryKey: ['highlights', article.id] });
     } else if (msg.type === 'delete-highlight') {
       deleteHighlight(msg.id);
+      queryClient.invalidateQueries({ queryKey: ['highlights', article.id] });
     }
   }
 
@@ -221,7 +246,37 @@ export default function ArticleScreen() {
     }
   }
 
+  const handleShare = useCallback(async () => {
+    if (!article) return;
+    try {
+      await Share.share({
+        message: article.title ? `${article.title}\n${article.url}` : article.url,
+        url: article.url,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }, [article]);
+
+  function handleAddTag() {
+    if (!id || !newTag.trim()) return;
+    addTagToArticle(id, newTag);
+    setNewTag('');
+    queryClient.invalidateQueries({ queryKey: ['tags', id] });
+    queryClient.invalidateQueries({ queryKey: ['articles'] });
+  }
+
+  function handleRemoveTag(name: string) {
+    removeTagFromArticle(id!, name);
+    queryClient.invalidateQueries({ queryKey: ['tags', id] });
+  }
+
   if (!article) return null;
+
+  const langLabel = article.lang
+    ? LANGUAGES.find((l) => article.lang?.toLowerCase().startsWith(l.key))?.label ||
+      article.lang.toUpperCase()
+    : null;
 
   const scrollFillHeight = scrollProgress.interpolate({
     inputRange: [0, 1],
@@ -236,7 +291,10 @@ export default function ArticleScreen() {
         <Text style={styles.domain} numberOfLines={1}>{getDomain(article.url)}</Text>
         <View style={styles.metaCenter}>
           {article.html_content && (
-            <Text style={styles.readTime}>{t.readTime(getReadTime(article.html_content))}</Text>
+            <Text style={styles.readTime}>
+              {langLabel && `${langLabel} • `}
+              {t.readTime(getReadTime(article.html_content))}
+            </Text>
           )}
         </View>
         <View style={styles.metaRight}>
@@ -259,9 +317,10 @@ export default function ArticleScreen() {
             title={article.title ?? ''}
             fontSize={fontSize}
             defaultColor={defaultColor}
-            highlights={initialHighlights}
+            highlights={highlights}
             onMessage={handleReaderMessage}
             onScrollProgress={handleScrollProgress}
+            scrollToHighlightId={targetHighlightId}
           />
           <View style={styles.scrollTrack}>
             <Animated.View style={[styles.scrollFill, { height: scrollFillHeight }]} />
@@ -315,6 +374,18 @@ export default function ArticleScreen() {
                 <Text style={styles.fabFontText}>A+</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={styles.fabActionBtn}
+                onPress={() => setShowHighlights(true)}
+              >
+                <Ionicons name="bookmarks-outline" size={22} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.fabActionBtn}
+                onPress={() => setShowTags(true)}
+              >
+                <Ionicons name="pricetag-outline" size={22} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[styles.fabActionBtn, isSpeaking && styles.fabActionBtnActive]}
                 onPress={toggleSpeech}
               >
@@ -325,22 +396,93 @@ export default function ArticleScreen() {
                 />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.fabActionBtn, isFetching && styles.fabActionBtnDisabled]}
-                onPress={handleFetchAgain}
-                disabled={isFetching}
-              >
-                <Ionicons name="refresh-outline" size={24} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
                 style={styles.fabActionBtn}
-                onPress={() => Linking.openURL(article.url)}
+                onPress={handleShare}
               >
-                <Ionicons name="open-outline" size={24} color={colors.primary} />
+                <Ionicons name="share-social-outline" size={24} color={colors.primary} />
               </TouchableOpacity>
             </>
           )}
         </View>
       </View>
+
+      {/* Highlights List Modal */}
+      <Modal visible={showHighlights} animationType="slide" transparent onRequestClose={() => setShowHighlights(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowHighlights(false)} />
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t.highlightsTitle}</Text>
+            <TouchableOpacity onPress={() => setShowHighlights(false)}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={highlights}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.highlightsList}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.highlightItem}
+                onPress={() => {
+                  setTargetHighlightId(item.id);
+                  setShowHighlights(false);
+                  // Clear after trigger to allow re-navigation if needed
+                  setTimeout(() => setTargetHighlightId(null), 100);
+                }}
+              >
+                <View style={[styles.highlightIndicator, { backgroundColor: defaultColor }]} />
+                <Text style={styles.highlightText} numberOfLines={3}>
+                  {item.selected_text}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyHighlights}>
+                <Text style={styles.emptyHighlightsText}>{t.noHighlightsYet}</Text>
+              </View>
+            }
+          />
+        </View>
+      </Modal>
+
+      {/* Tags Modal */}
+      <Modal visible={showTags} animationType="slide" transparent onRequestClose={() => setShowTags(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowTags(false)} />
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{t.tagsTitle}</Text>
+            <TouchableOpacity onPress={() => setShowTags(false)}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.tagInputRow}>
+            <TextInput
+              style={styles.tagInput}
+              placeholder={t.tagPlaceholder}
+              value={newTag}
+              onChangeText={setNewTag}
+              onSubmitEditing={handleAddTag}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity style={styles.addTagBtn} onPress={handleAddTag}>
+              <Text style={styles.addTagBtnText}>{t.addTag}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.tagsContainer}>
+            {tags.map((tag) => (
+              <View key={tag} style={styles.tagBadge}>
+                <Text style={styles.tagBadgeText}>{tag}</Text>
+                <TouchableOpacity onPress={() => handleRemoveTag(tag)}>
+                  <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -483,7 +625,7 @@ const styles = StyleSheet.create({
   },
   fabPill: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
     backgroundColor: colors.bgMuted,
     borderRadius: 32,
     paddingHorizontal: 10,
@@ -497,7 +639,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   fabActionBtn: {
-    width: 55,
+    width: 48,
     height: 40,
     borderRadius: 20,
     alignItems: 'center',
@@ -518,5 +660,103 @@ const styles = StyleSheet.create({
   readTime: {
     fontSize: 12,
     color: colors.textFaint,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    height: '60%',
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  highlightsList: {
+    paddingVertical: 10,
+  },
+  highlightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  highlightIndicator: {
+    width: 4,
+    height: 24,
+    borderRadius: 2,
+  },
+  highlightText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.textPrimary,
+    lineHeight: 20,
+  },
+  emptyHighlights: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyHighlightsText: {
+    color: colors.textMuted,
+    fontSize: 14,
+  },
+  tagInputRow: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 10,
+  },
+  tagInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: colors.bgMuted,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    fontSize: 15,
+  },
+  addTagBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  addTagBtnText: {
+    color: colors.white,
+    fontWeight: '600',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  tagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgMuted,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  tagBadgeText: {
+    fontSize: 14,
+    color: colors.textPrimary,
   },
 });

@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import * as Crypto from 'expo-crypto';
 
 const db = SQLite.openDatabaseSync('sonraoku.db');
 
@@ -30,6 +31,17 @@ export function initDb(): void {
   context_before TEXT NOT NULL,
   context_after TEXT NOT NULL,
   created_at INTEGER NOT NULL
+)`);
+
+  db.execSync(`CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  name TEXT UNIQUE
+)`);
+
+  db.execSync(`CREATE TABLE IF NOT EXISTS article_tags (
+  article_id TEXT,
+  tag_id TEXT,
+  PRIMARY KEY (article_id, tag_id)
 )`);
 
   // Migration: add lang column to existing installs
@@ -104,6 +116,51 @@ export function getAllArticles(): Article[] {
   return db.getAllSync<Article>('SELECT * FROM articles ORDER BY saved_at DESC');
 }
 
+export function getArticles(
+  limit: number,
+  offset: number,
+  filter: string,
+  searchQuery: string,
+  tagName?: string
+): Article[] {
+  let query = 'SELECT * FROM articles';
+  const params: (string | number)[] = [];
+  const whereClauses: string[] = [];
+
+  if (filter === 'archived') {
+    whereClauses.push('is_archived = 1');
+  } else {
+    whereClauses.push('is_archived = 0');
+    if (filter === 'unread') whereClauses.push('is_read = 0');
+    if (filter === 'offline') whereClauses.push('html_content IS NOT NULL');
+  }
+
+  if (searchQuery.trim()) {
+    whereClauses.push(`(
+      title LIKE ? OR 
+      url LIKE ? OR 
+      excerpt LIKE ? OR 
+      id IN (SELECT article_id FROM article_tags JOIN tags ON article_tags.tag_id = tags.id WHERE tags.name LIKE ?)
+    )`);
+    const q = `%${searchQuery.trim()}%`;
+    params.push(q, q, q, q);
+  }
+
+  if (tagName) {
+    whereClauses.push(`id IN (SELECT article_id FROM article_tags WHERE tag_id = (SELECT id FROM tags WHERE name = ?))`);
+    params.push(tagName.toLowerCase());
+  }
+
+  if (whereClauses.length > 0) {
+    query += ' WHERE ' + whereClauses.join(' AND ');
+  }
+
+  query += ' ORDER BY saved_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return db.getAllSync<Article>(query, params);
+}
+
 export function getArticleById(id: string): Article | null {
   return db.getFirstSync<Article>('SELECT * FROM articles WHERE id = ?', [id]);
 }
@@ -118,6 +175,10 @@ export function markArticleUnread(id: string): void {
 
 export function archiveArticle(id: string): void {
   db.runSync('UPDATE articles SET is_archived = 1, updated_at = ? WHERE id = ?', [Date.now(), id]);
+}
+
+export function archiveAllReadArticles(): void {
+  db.runSync('UPDATE articles SET is_archived = 1, updated_at = ? WHERE is_read = 1 AND is_archived = 0', [Date.now()]);
 }
 
 export function unarchiveArticle(id: string): void {
@@ -156,4 +217,51 @@ export function insertHighlight(
 
 export function deleteHighlight(id: string): void {
   db.runSync('DELETE FROM highlights WHERE id = ?', [id]);
+}
+
+export type HighlightWithArticle = Highlight & { article_title: string | null };
+
+export function getAllHighlights(): HighlightWithArticle[] {
+  return db.getAllSync<HighlightWithArticle>(
+    `SELECT h.*, a.title as article_title 
+     FROM highlights h 
+     JOIN articles a ON h.article_id = a.id 
+     ORDER BY h.created_at DESC`
+  );
+}
+
+
+export function getTagsForArticle(articleId: string): string[] {
+  return db.getAllSync<{ name: string }>(
+    `SELECT t.name FROM tags t 
+     JOIN article_tags at ON t.id = at.tag_id 
+     WHERE at.article_id = ? ORDER BY t.name ASC`,
+    [articleId]
+  ).map(r => r.name);
+}
+
+export function getAllTags(): string[] {
+  return db.getAllSync<{ name: string }>('SELECT name FROM tags ORDER BY name ASC').map(r => r.name);
+}
+
+export function addTagToArticle(articleId: string, tagName: string): void {
+  const name = tagName.trim().toLowerCase();
+  if (!name) return;
+
+  let tag = db.getFirstSync<{ id: string }>('SELECT id FROM tags WHERE name = ?', [name]);
+  let tagId = tag?.id;
+
+  if (!tagId) {
+    tagId = Crypto.randomUUID();
+    db.runSync('INSERT INTO tags (id, name) VALUES (?, ?)', [tagId, name]);
+  }
+
+  db.runSync('INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)', [articleId, tagId]);
+}
+
+export function removeTagFromArticle(articleId: string, tagName: string): void {
+  db.runSync(
+    `DELETE FROM article_tags WHERE article_id = ? AND tag_id = (SELECT id FROM tags WHERE name = ?)`,
+    [articleId, tagName.toLowerCase()]
+  );
 }

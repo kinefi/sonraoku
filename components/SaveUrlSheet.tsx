@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { colors } from '../lib/colors';
 import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
@@ -23,10 +24,7 @@ type Props = {
 };
 
 function generateId(): string {
-  return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
+  return Crypto.randomUUID();
 }
 
 export default function SaveUrlSheet({ visible, onClose }: Props) {
@@ -62,7 +60,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     // Fetch + queue in background — sheet is already closed
     fetchRawHtml(fullUrl)
       .then((rawHtml) => addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl }))
-      .catch(() => {/* article saved without content — reader shows fallback */});
+      .catch((e) => { console.error(e) });
   }
 
   function handleClose() {

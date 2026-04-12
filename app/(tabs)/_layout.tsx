@@ -25,6 +25,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="tags"
+        options={{
+          title: t.tags,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="pricetags-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="highlights"
+        options={{
+          title: t.highlights,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bookmarks-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: t.settings,

@@ -24,11 +24,11 @@ function urlToFilename(url: string, index: number): string {
   try {
     const pathname = new URL(url).pathname;
     const name = pathname.split('/').pop()?.split('?')[0];
-    if (name && name.length > 0 && name.length < 80) return name;
+    if (name && name.length > 0 && name.length < 80) return `${index}_${name}`;
   } catch {
     // fall through
   }
-  return `img_${index}`;
+  return `img_${index}_${Date.now()}`;
 }
 
 export async function cacheArticleImages(html: string, articleId: string): Promise<string> {

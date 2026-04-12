@@ -6,12 +6,17 @@ import {
   Text,
   StyleSheet,
   StatusBar,
+  TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
-import { getAllArticles, Article } from '../../lib/db';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { getArticles, Article, archiveAllReadArticles } from '../../lib/db';
 import { colors } from '../../lib/colors';
+import { queryClient } from '../../lib/queryClient';
 import { sharedStyles } from '../../lib/sharedStyles';
 import SwipeableArticleCard from '../../components/SwipeableArticleCard';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
@@ -19,22 +24,11 @@ import { useLanguage } from '../../lib/languageContext';
 
 type Filter = 'all' | 'unread' | 'offline' | 'archived';
 
-function applyFilter(articles: Article[], filter: Filter): Article[] {
-  switch (filter) {
-    case 'unread':
-      return articles.filter((a) => !a.is_read && !a.is_archived);
-    case 'offline':
-      return articles.filter((a) => a.html_content !== null && !a.is_archived);
-    case 'archived':
-      return articles.filter((a) => !!a.is_archived);
-    default:
-      return articles.filter((a) => !a.is_archived);
-  }
-}
-
 export default function Index() {
+  const { tag } = useLocalSearchParams<{ tag?: string }>();
   const [filter, setFilter] = useState<Filter>('all');
   const [showSheet, setShowSheet] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { t } = useLanguage();
 
   const filters: { key: Filter; label: string }[] = [
@@ -44,12 +38,34 @@ export default function Index() {
     { key: 'archived', label: t.archived },
   ];
 
-  const { data: articles = [] } = useQuery({
-    queryKey: ['articles'],
-    queryFn: getAllArticles,
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['articles', filter, searchQuery, tag],
+    queryFn: ({ pageParam }) => getArticles(20, pageParam, filter, searchQuery, tag),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage.length < 20 ? undefined : allPages.length * 20;
+    },
   });
 
-  const filtered = applyFilter(articles, filter);
+  const filtered = data?.pages.flat() ?? [];
+
+  const handleArchiveAllRead = () => {
+    Alert.alert(t.archiveAllRead, t.confirmArchiveRead, [
+      { text: t.back, style: 'cancel' },
+      {
+        text: t.archiveAllRead,
+        onPress: () => {
+          archiveAllReadArticles();
+          queryClient.invalidateQueries({ queryKey: ['articles'] });
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={sharedStyles.container}>
@@ -57,7 +73,43 @@ export default function Index() {
 
       <View style={sharedStyles.header}>
         <Text style={sharedStyles.headerTitle}>{t.readingList}</Text>
+        {filter !== 'archived' && (
+          <TouchableOpacity onPress={handleArchiveAllRead} style={styles.headerAction}>
+            <Ionicons name="archive-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t.searchPlaceholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Tag filter info */}
+      {tag && (
+        <View style={styles.tagInfo}>
+          <Text style={styles.tagInfoText}>{t.filteringByTag(tag)}</Text>
+          <TouchableOpacity onPress={() => router.setParams({ tag: undefined })}>
+            <Ionicons name="close-circle" size={18} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Filter chips */}
       <View style={styles.filterRow}>
@@ -79,6 +131,17 @@ export default function Index() {
           <SwipeableArticleCard article={item} onPress={() => router.push(`/article/${item.id}`)} />
         )}
         contentContainerStyle={filtered.length === 0 ? styles.emptyList : styles.list}
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginVertical: 20 }} />
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyText}>{t.noArticles}</Text>
@@ -98,10 +161,48 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
+  headerAction: {
+    padding: 4,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    backgroundColor: colors.white,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgMuted,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  tagInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgPage,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  tagInfoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingBottom: 10,
+    paddingTop: 10,
     backgroundColor: colors.white,
     gap: 8,
     borderBottomWidth: 1,

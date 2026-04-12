@@ -12,7 +12,7 @@ type LanguageContextType = {
 
 const LanguageContext = createContext<LanguageContextType>({
   lang: 'tr',
-  setLang: () => {},
+  setLang: () => { },
   t: translations.tr,
 });
 
@@ -22,12 +22,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(LANG_KEY)
       .then((val) => { if (val === 'en' || val === 'tr') setLangState(val); })
-      .catch(() => {});
+      .catch((e) => { console.error(e) });
   }, []);
 
   function setLang(newLang: Lang) {
     setLangState(newLang);
-    AsyncStorage.setItem(LANG_KEY, newLang).catch(() => {});
+    AsyncStorage.setItem(LANG_KEY, newLang).catch((e) => { console.error(e) });
   }
 
   return (

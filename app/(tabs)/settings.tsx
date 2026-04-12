@@ -30,21 +30,21 @@ export default function SettingsScreen() {
   useEffect(() => {
     AsyncStorage.getItem(FONT_SIZE_KEY)
       .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
-      .catch(() => {});
+      .catch((e) => { console.error(e) });
     AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
       .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setHighlightColor(val as HighlightColor); })
-      .catch(() => {});
+      .catch((e) => { console.error(e) });
   }, []);
 
   function changeFontSize(delta: number) {
     const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
     setFontSize(next);
-    AsyncStorage.setItem(FONT_SIZE_KEY, String(next)).catch(() => {});
+    AsyncStorage.setItem(FONT_SIZE_KEY, String(next)).catch((e) => { console.error(e) });
   }
 
   function changeHighlightColor(color: HighlightColor) {
     setHighlightColor(color);
-    AsyncStorage.setItem(HIGHLIGHT_COLOR_KEY, color).catch(() => {});
+    AsyncStorage.setItem(HIGHLIGHT_COLOR_KEY, color).catch((e) => { console.error(e) });
   }
 
   const currentLabel = LANGUAGES.find((l) => l.key === lang)?.label ?? lang;
