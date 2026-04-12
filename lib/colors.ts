@@ -1,3 +1,9 @@
+// Available highlight colors — used in ReaderView toolbar and settings color picker
+export const HIGHLIGHT_COLORS = ['#FFE066', '#A8F0C0', '#A8C8F8', '#F8A8C8'] as const;
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
+export const HIGHLIGHT_COLOR_DEFAULT: HighlightColor = '#FFE066';
+export const HIGHLIGHT_COLOR_KEY = 'highlight_color';
+
 export const colors = {
   primary: '#534AB7',
   primaryDark: '#3f369f',

@@ -227,7 +227,7 @@ Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m
 
 ### Phase 3 — Backend sync
 
-- [ ] FastAPI + PostgreSQL (Docker Compose)
+- [ ] FastAPI + PostgreSQL (Docker Compose) or maybe a better option like Expo routers backend or from Google ecosystem like firebase for simple backend? Let's plan first.
 - [ ] Move parsing to backend
 - [ ] JWT auth
 - [ ] Delta sync endpoint + sync engine

@@ -28,7 +28,7 @@ export default function ArticleCard({ article, onPress }: Props) {
     <TouchableOpacity
       style={[styles.card, isRead && styles.cardRead]}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.5}
     >
       <View style={styles.topRow}>
         <View style={styles.leftGroup}>
@@ -98,13 +98,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   title: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 4,
   },
   excerpt: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 18,
     marginBottom: 6,

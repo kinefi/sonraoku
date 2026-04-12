@@ -1,8 +1,10 @@
 // Custom Metro transformer that serves specific files as raw string modules.
 // Used to inline @mozilla/readability/Readability.js without a postinstall script.
 
+const path = require('path');
+const projectRoot = path.resolve(__dirname, '..');
 const upstreamTransformer = require(
-  require('expo/metro-config').getDefaultConfig(__dirname).transformer.babelTransformerPath
+  require('expo/metro-config').getDefaultConfig(projectRoot).transformer.babelTransformerPath
 );
 const fs = require('fs');
 

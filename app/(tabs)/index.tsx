@@ -52,7 +52,7 @@ export default function Index() {
   const filtered = applyFilter(articles, filter);
 
   return (
-    <SafeAreaView style={sharedStyles.container} edges={['top']}>
+    <SafeAreaView style={sharedStyles.container}>
       <StatusBar barStyle="dark-content" translucent={false} />
 
       <View style={sharedStyles.header}>

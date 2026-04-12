@@ -23,12 +23,39 @@ export function initDb(): void {
   article_id TEXT NOT NULL
 )`);
 
+  db.execSync(`CREATE TABLE IF NOT EXISTS highlights (
+  id TEXT PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  selected_text TEXT NOT NULL,
+  context_before TEXT NOT NULL,
+  context_after TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+)`);
+
   // Migration: add lang column to existing installs
   const langColumnExists = db.getFirstSync<{ count: number }>(
     "SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'lang'"
   );
   if (!langColumnExists?.count) {
     db.execSync('ALTER TABLE articles ADD COLUMN lang TEXT');
+  }
+
+  // Migration: drop color column from highlights (color is now a display-only preference)
+  const highlightColorExists = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM pragma_table_info('highlights') WHERE name = 'color'"
+  );
+  if (highlightColorExists?.count) {
+    db.execSync(`CREATE TABLE highlights_new (
+      id TEXT PRIMARY KEY,
+      article_id TEXT NOT NULL,
+      selected_text TEXT NOT NULL,
+      context_before TEXT NOT NULL,
+      context_after TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`);
+    db.execSync(`INSERT INTO highlights_new SELECT id, article_id, selected_text, context_before, context_after, created_at FROM highlights`);
+    db.execSync(`DROP TABLE highlights`);
+    db.execSync(`ALTER TABLE highlights_new RENAME TO highlights`);
   }
 }
 
@@ -95,4 +122,38 @@ export function archiveArticle(id: string): void {
 
 export function unarchiveArticle(id: string): void {
   db.runSync('UPDATE articles SET is_archived = 0, updated_at = ? WHERE id = ?', [Date.now(), id]);
+}
+
+export type Highlight = {
+  id: string;
+  article_id: string;
+  selected_text: string;
+  context_before: string;
+  context_after: string;
+  created_at: number;
+};
+
+export function getHighlightsByArticle(articleId: string): Highlight[] {
+  return db.getAllSync<Highlight>(
+    'SELECT * FROM highlights WHERE article_id = ? ORDER BY created_at ASC',
+    [articleId]
+  );
+}
+
+export function insertHighlight(
+  id: string,
+  articleId: string,
+  selectedText: string,
+  contextBefore: string,
+  contextAfter: string
+): void {
+  db.runSync(
+    `INSERT INTO highlights (id, article_id, selected_text, context_before, context_after, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, articleId, selectedText, contextBefore, contextAfter, Date.now()]
+  );
+}
+
+export function deleteHighlight(id: string): void {
+  db.runSync('DELETE FROM highlights WHERE id = ?', [id]);
 }

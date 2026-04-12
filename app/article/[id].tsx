@@ -6,9 +6,6 @@ import {
   Linking,
   StyleSheet,
   Animated,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  ScrollView,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,18 +15,26 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as Speech from 'expo-speech';
 import { queryClient } from '../../lib/queryClient';
-import { getArticleById, markArticleRead } from '../../lib/db';
-import { colors } from '../../lib/colors';
+import {
+  getArticleById, markArticleRead,
+  getHighlightsByArticle, insertHighlight, deleteHighlight,
+  Highlight,
+} from '../../lib/db';
+import { colors, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HIGHLIGHT_COLORS, HighlightColor } from '../../lib/colors';
 import { getDomain, getReadTime } from '../../lib/utils';
 import { useParseQueue } from '../../lib/parseQueue';
 import { fetchRawHtml, buildParserHtml } from '../../lib/parser';
-import ReaderView from '../../components/ReaderView';
+import ReaderView, { ReaderMessage } from '../../components/ReaderView';
 import { useLanguage } from '../../lib/languageContext';
 
 const FONT_SIZE_KEY = 'reader_font_size';
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 36;
+
+// Module-level cache prevents font size flash on re-navigation (AsyncStorage is async,
+// so the first render would otherwise use the default before the stored value loads)
+let _fontSizeCache: number | null = null;
 const SPEECH_CHUNK_MAX_LEN = 4000;
 const SPEECH_RATE = 1.0;
 const SPEECH_SAFETY_TIMEOUT_MS = 30_000;
@@ -69,12 +74,12 @@ function htmlToPlainText(html: string): string {
 export default function ArticleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useLanguage();
-  const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
+  const [fontSize, setFontSize] = useState(_fontSizeCache ?? FONT_SIZE_DEFAULT);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechChunksRef = useRef<string[]>([]);
   const speechChunkIndexRef = useRef(0);
   const speechSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speakNextChunkRef = useRef<() => void>(() => {});
+  const speakNextChunkRef = useRef<() => void>(() => { });
   speakNextChunkRef.current = () => {
     if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
     const idx = speechChunkIndexRef.current;
@@ -100,16 +105,26 @@ export default function ArticleScreen() {
     });
   };
   const scrollProgress = useRef(new Animated.Value(0)).current;
-  const [scrollBarWidth, setScrollBarWidth] = useState(0);
+  const [readerHeight, setReaderHeight] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error'>('idle');
+  const [defaultColor, setDefaultColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
   const { addToQueue } = useParseQueue();
   const fetchStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(FONT_SIZE_KEY)
-      .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
-      .catch(() => {});
+      .then((val) => {
+        if (val) {
+          const parsed = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)));
+          _fontSizeCache = parsed;
+          setFontSize(parsed);
+        }
+      })
+      .catch(() => { });
+    AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
+      .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setDefaultColor(val as HighlightColor); })
+      .catch(() => { });
   }, []);
 
   // Stop speech and clear timers when leaving the screen
@@ -124,6 +139,7 @@ export default function ArticleScreen() {
   const changeFontSize = useCallback(
     (delta: number) => {
       const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
+      _fontSizeCache = next;
       setFontSize(next);
       AsyncStorage.setItem(FONT_SIZE_KEY, String(next));
     },
@@ -161,11 +177,29 @@ export default function ArticleScreen() {
     speakNextChunkRef.current();
   }, [isSpeaking, article?.html_content]);
 
-  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const scrollable = contentSize.height - layoutMeasurement.height;
-    if (scrollable > 0) {
-      scrollProgress.setValue(contentOffset.y / scrollable);
+  const initialHighlights = React.useMemo<Highlight[]>(
+    () => (article?.id ? getHighlightsByArticle(article.id) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [article?.id]
+  );
+
+  function handleScrollProgress(progress: number) {
+    scrollProgress.setValue(progress);
+  }
+
+  function generateId(): string {
+    return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  }
+
+  function handleReaderMessage(msg: ReaderMessage) {
+    if (!article) return;
+    if (msg.type === 'highlight') {
+      insertHighlight(generateId(), article.id, msg.text, msg.contextBefore, msg.contextAfter);
+    } else if (msg.type === 'delete-highlight') {
+      deleteHighlight(msg.id);
     }
   }
 
@@ -189,51 +223,50 @@ export default function ArticleScreen() {
 
   if (!article) return null;
 
-  const progressWidth = scrollProgress.interpolate({
+  const scrollFillHeight = scrollProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, scrollBarWidth],
+    outputRange: [0, readerHeight],
     extrapolate: 'clamp',
   });
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      {/* Progress bar */}
-      <View
-        style={styles.progressTrack}
-        onLayout={(e) => setScrollBarWidth(e.nativeEvent.layout.width)}
-      >
-        <Animated.View style={[styles.progressBar, { width: progressWidth }]} />
-      </View>
-
-      {/* Nav */}
-      <View style={styles.nav}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>{t.back}</Text>
-        </TouchableOpacity>
-        <View style={styles.navRight}>
-          <TouchableOpacity onPress={() => Linking.openURL(article.url)}>
-            <Text style={styles.shareText}>{t.share}</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      {/* Site name left | read time center | offline right */}
+      <View style={styles.metaRow}>
+        <Text style={styles.domain} numberOfLines={1}>{getDomain(article.url)}</Text>
+        <View style={styles.metaCenter}>
+          {article.html_content && (
+            <Text style={styles.readTime}>{t.readTime(getReadTime(article.html_content))}</Text>
+          )}
+        </View>
+        <View style={styles.metaRight}>
+          {article.html_content && (
+            <View style={styles.offlineIndicator}>
+              <View style={styles.offlineDot} />
+              <Text style={styles.offlineText}>{t.offlineLabel}</Text>
+            </View>
+          )}
         </View>
       </View>
-
-      {/* Domain + offline indicator */}
-      <View style={styles.metaRow}>
-        <Text style={styles.domain}>{getDomain(article.url)}</Text>
-        {article.html_content && (
-          <View style={styles.offlineIndicator}>
-            <View style={styles.offlineDot} />
-            <Text style={styles.offlineText}>{t.offlineLabel}</Text>
-          </View>
-        )}
-      </View>
-
       {/* Content */}
       {article.html_content ? (
-        <ScrollView style={styles.scroll} onScroll={handleScroll} scrollEventThrottle={16}>
-          <Text style={[styles.articleTitle, { fontSize: fontSize + 6 }]}>{article.title}</Text>
-          <ReaderView html={article.html_content} fontSize={fontSize} />
-        </ScrollView>
+        <View
+          style={styles.readerWrapper}
+          onLayout={(e) => setReaderHeight(e.nativeEvent.layout.height)}
+        >
+          <ReaderView
+            html={article.html_content}
+            title={article.title ?? ''}
+            fontSize={fontSize}
+            defaultColor={defaultColor}
+            highlights={initialHighlights}
+            onMessage={handleReaderMessage}
+            onScrollProgress={handleScrollProgress}
+          />
+          <View style={styles.scrollTrack}>
+            <Animated.View style={[styles.scrollFill, { height: scrollFillHeight }]} />
+          </View>
+        </View>
       ) : (
         <View style={styles.fallback}>
           <Text style={styles.fallbackText}>
@@ -260,52 +293,54 @@ export default function ArticleScreen() {
         </View>
       )}
 
-      {/* Bottom bar */}
-      <View style={styles.bottomBar}>
-        <View style={styles.fontControls}>
-          <TouchableOpacity
-            style={[styles.fontBtn, fontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
-            onPress={() => changeFontSize(-2)}
-            disabled={fontSize <= FONT_SIZE_MIN}
-          >
-            <Text style={[styles.fontBtnText, fontSize <= FONT_SIZE_MIN && styles.fontBtnTextDisabled]}>A−</Text>
+      <View style={styles.fabActionRow}>
+        <View style={styles.fabPill}>
+          <TouchableOpacity style={styles.fabActionBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fontBtn, fontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
-            onPress={() => changeFontSize(2)}
-            disabled={fontSize >= FONT_SIZE_MAX}
-          >
-            <Text style={[styles.fontBtnText, { fontSize: 16 }, fontSize >= FONT_SIZE_MAX && styles.fontBtnTextDisabled]}>A+</Text>
-          </TouchableOpacity>
+          {article.html_content && (
+            <>
+              <TouchableOpacity
+                style={[styles.fabActionBtn, fontSize <= FONT_SIZE_MIN && styles.fabActionBtnDisabled]}
+                onPress={() => changeFontSize(-2)}
+                disabled={fontSize <= FONT_SIZE_MIN}
+              >
+                <Text style={styles.fabFontText}>A−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fabActionBtn, fontSize >= FONT_SIZE_MAX && styles.fabActionBtnDisabled]}
+                onPress={() => changeFontSize(2)}
+                disabled={fontSize >= FONT_SIZE_MAX}
+              >
+                <Text style={styles.fabFontText}>A+</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fabActionBtn, isSpeaking && styles.fabActionBtnActive]}
+                onPress={toggleSpeech}
+              >
+                <Ionicons
+                  name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
+                  size={24}
+                  color={isSpeaking ? colors.white : colors.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fabActionBtn, isFetching && styles.fabActionBtnDisabled]}
+                onPress={handleFetchAgain}
+                disabled={isFetching}
+              >
+                <Ionicons name="refresh-outline" size={24} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.fabActionBtn}
+                onPress={() => Linking.openURL(article.url)}
+              >
+                <Ionicons name="open-outline" size={24} color={colors.primary} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-        <Text style={styles.readTime}>{article.html_content ? t.readTime(getReadTime(article.html_content)) : ''}</Text>
       </View>
-
-      {article.html_content && (
-        <View style={styles.fabActionRow}>
-          <TouchableOpacity
-            style={[styles.fabActionBtn, isSpeaking && styles.fabActionBtnActive]}
-            onPress={toggleSpeech}
-          >
-            <Ionicons
-              name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
-              size={20}
-              color={colors.white}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.fabActionBtn, isFetching && styles.fabActionBtnDisabled]}
-            onPress={handleFetchAgain}
-            disabled={isFetching}
-          >
-            <Ionicons
-              name="refresh-outline"
-              size={20}
-              color={colors.white}
-            />
-          </TouchableOpacity>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -315,16 +350,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
-  scroll: {
+  readerWrapper: {
     flex: 1,
   },
-  progressTrack: {
-    height: 3,
-    backgroundColor: colors.border,
+  scrollTrack: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
-  progressBar: {
-    height: 3,
+  scrollFill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 4,
+    borderRadius: 2,
     backgroundColor: colors.primary,
+    opacity: 0.45,
   },
   nav: {
     flexDirection: 'row',
@@ -343,24 +387,27 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '500',
   },
-  navRight: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  shareText: {
-    fontSize: 15,
-    color: colors.primary,
-  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
-    gap: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
   },
+  metaCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metaRight: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
+  },
   domain: {
+    flex: 1,
     fontSize: 12,
     color: colors.textMuted,
   },
@@ -378,14 +425,6 @@ const styles = StyleSheet.create({
   offlineText: {
     fontSize: 11,
     color: colors.success,
-  },
-  articleTitle: {
-    fontWeight: '700',
-    color: colors.textPrimary,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    lineHeight: 32,
   },
   fallback: {
     flex: 1,
@@ -435,61 +474,46 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  fontControls: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  fontBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.bgMuted,
-  },
-  fontBtnText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  fontBtnDisabled: {
-    backgroundColor: colors.bgPage,
-  },
-  fontBtnTextDisabled: {
-    color: colors.textFaint,
-  },
   fabActionRow: {
     position: 'absolute',
-    right: 20,
-    bottom: 80,
+    left: 0,
+    right: 0,
+    bottom: 24,
+    alignItems: 'center',
+  },
+  fabPill: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 6,
+    backgroundColor: colors.bgMuted,
+    borderRadius: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    elevation: 6,
+    shadowColor: colors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
   fabActionBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
+    width: 55,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
   },
   fabActionBtnActive: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.primary,
+    borderRadius: 20,
   },
   fabActionBtnDisabled: {
     opacity: 0.5,
+  },
+  fabFontText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
   },
   readTime: {
     fontSize: 12,

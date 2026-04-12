@@ -10,6 +10,7 @@ const tr = {
   settings: 'Ayarlar',
   language: 'Dil',
   defaultFontSize: 'Varsayılan Yazı Boyutu',
+  defaultHighlightColor: 'Varsayılan Vurgulama Rengi',
 
   all: 'Tümü',
   unread: 'Okunmamış',
@@ -48,6 +49,7 @@ const en: typeof tr = {
   settings: 'Settings',
   language: 'Language',
   defaultFontSize: 'Default Font Size',
+  defaultHighlightColor: 'Default Highlight Color',
 
   all: 'All',
   unread: 'Unread',

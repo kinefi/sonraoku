@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sharedStyles } from '../../lib/sharedStyles';
-import { colors } from '../../lib/colors';
+import { colors, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HighlightColor } from '../../lib/colors';
 import { useLanguage } from '../../lib/languageContext';
 import { LANGUAGES, Lang } from '../../lib/i18n';
 
@@ -20,14 +20,19 @@ const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 36;
 
+
 export default function SettingsScreen() {
   const { t, lang, setLang } = useLanguage();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
+  const [highlightColor, setHighlightColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
 
   useEffect(() => {
     AsyncStorage.getItem(FONT_SIZE_KEY)
       .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
+      .catch(() => {});
+    AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
+      .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setHighlightColor(val as HighlightColor); })
       .catch(() => {});
   }, []);
 
@@ -35,6 +40,11 @@ export default function SettingsScreen() {
     const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
     setFontSize(next);
     AsyncStorage.setItem(FONT_SIZE_KEY, String(next)).catch(() => {});
+  }
+
+  function changeHighlightColor(color: HighlightColor) {
+    setHighlightColor(color);
+    AsyncStorage.setItem(HIGHLIGHT_COLOR_KEY, color).catch(() => {});
   }
 
   const currentLabel = LANGUAGES.find((l) => l.key === lang)?.label ?? lang;
@@ -45,7 +55,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={sharedStyles.container} edges={['top']}>
+    <SafeAreaView style={sharedStyles.container}>
       <StatusBar barStyle="dark-content" translucent={false} />
       <View style={sharedStyles.header}>
         <Text style={sharedStyles.headerTitle}>{t.settings}</Text>
@@ -79,6 +89,20 @@ export default function SettingsScreen() {
           >
             <Text style={[styles.fontBtnText, { fontSize: 16 }, fontSize >= FONT_SIZE_MAX && styles.fontBtnTextDisabled]}>A+</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Highlight color */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.defaultHighlightColor}</Text>
+        <View style={styles.colorRow}>
+          {HIGHLIGHT_COLORS.map((color) => (
+            <TouchableOpacity
+              key={color}
+              style={[styles.colorSwatch, { backgroundColor: color }, highlightColor === color && styles.colorSwatchSelected]}
+              onPress={() => changeHighlightColor(color)}
+            />
+          ))}
         </View>
       </View>
 
@@ -171,6 +195,25 @@ const styles = StyleSheet.create({
   fontSizeValue: {
     color: colors.textPrimary,
     fontWeight: '500',
+  },
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  colorSwatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorSwatchSelected: {
+    borderColor: colors.textPrimary,
   },
   backdrop: {
     position: 'absolute',
