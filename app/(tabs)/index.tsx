@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     gap: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
   emptyHint: {
     fontSize: 13,
-    color: '#bbb',
+    color: colors.placeholder,
     marginTop: 4,
   },
   fab: {

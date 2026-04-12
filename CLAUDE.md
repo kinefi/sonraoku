@@ -12,7 +12,8 @@ article URLs, the app fetches and parses the article content locally, and stores
 offline reading. A FastAPI backend will be added later for cross-device sync — but the
 app must be fully functional offline-first without it.
 
-**Language:** All user-facing strings must be in Turkish.
+**Language:** All user-facing strings must go through the i18n system (`lib/i18n.ts`).
+The app supports Turkish and English with an in-app language switcher in settings.
 
 ---
 
@@ -24,12 +25,15 @@ app must be fully functional offline-first without it.
 - **Expo SQLite** — local database, single source of truth
 - **TanStack Query (React Query)** — server state, optimistic updates, mutation queue
 - **react-native-webview** — hidden WebView for article parsing (see parser section)
-- **@mozilla/readability** — article parsing library (runs inside the hidden WebView); source inlined at build time via `scripts/bundle-readability.js` (runs on `postinstall`)
+- **@mozilla/readability** — article parsing library (runs inside the hidden WebView); source
+  served as a raw string module via a custom Metro transformer (`scripts/rawStringTransformer.js`)
+  hooked into `metro.config.js` — no postinstall script, no generated file
 - **react-native-render-html** — renders parsed article HTML in the reader screen
 - **expo-file-system** — caches article images locally for true offline reading
 - **expo-speech** — read aloud via device TTS, works offline; language detected from article `lang` attribute
 - **react-native-gesture-handler + react-native-reanimated** — swipe gestures on article cards (`Swipeable` — `ReanimatedSwipeable` is incompatible with SDK 55, do not upgrade)
-- **@react-native-async-storage/async-storage** — persists reader font size preference
+- **@react-native-async-storage/async-storage** — persists reader font size preference and
+  selected UI language (`'reader_font_size'` and `'app_language'` keys)
 - **expo-background-fetch + expo-task-manager** — background sync (Phase 3, not yet implemented)
 - **ESLint** (`eslint-config-expo`) + **Prettier** — linting and formatting
 
@@ -47,11 +51,11 @@ app must be fully functional offline-first without it.
 
 ```
 app/
-  _layout.tsx          # root layout — QueryClient, GestureHandler, parse queue
+  _layout.tsx          # root layout — QueryClient, GestureHandler, parse queue, DB init
   (tabs)/
     _layout.tsx        # bottom tab navigator
     index.tsx          # article list screen
-    settings.tsx
+    settings.tsx       # language + font size settings
   article/[id].tsx     # reader screen
 components/
   ArticleCard.tsx      # card used in list screen
@@ -61,17 +65,19 @@ components/
   SwipeableArticleCard.tsx  # wraps ArticleCard with swipe-to-archive/read
 lib/
   colors.ts            # design token colors — single source of truth for all color values
-  db.ts                # SQLite setup, schema, CRUD helpers
+  db.ts                # SQLite setup, schema, CRUD helpers; call initDb() on app start
+  i18n.ts              # translation strings for TR/EN; function-based strings for parameterized output
   imageCache.ts        # downloads + caches article images via expo-file-system
+  languageContext.tsx  # LanguageProvider + useLanguage hook (lang, setLang, t)
   parseQueue.tsx       # React context for the article parse queue
   parser.ts            # fetchRawHtml + buildParserHtml
   queryClient.ts       # TanStack Query client setup
-  readabilitySource.ts # AUTO-GENERATED — do not edit (see scripts/bundle-readability.js)
   sharedStyles.ts      # shared StyleSheet definitions used across screens
   sync.ts              # sync engine (placeholder for Phase 3)
-  utils.ts             # shared helpers: getDomain, getReadTime
+  utils.ts             # shared helpers: getDomain, getReadTime (returns number of minutes)
+metro.config.js        # hooks rawStringTransformer as babelTransformerPath
 scripts/
-  bundle-readability.js  # inlines Readability.js as a TS string (runs on postinstall)
+  rawStringTransformer.js  # Metro transformer: serves @mozilla/readability/Readability.js as raw string
 ```
 
 ---
@@ -102,6 +108,10 @@ CREATE TABLE IF NOT EXISTS cached_images (
 
 `lang` was added as a migration — existing installs are handled via `pragma_table_info` check on startup.
 
+**Important:** `db.ts` exports `initDb()` which must be called once on app start (inside a
+`useEffect` in `app/_layout.tsx`). Schema creation and migrations are inside `initDb()` so
+that any failure is caught and does not prevent the splash screen from dismissing.
+
 ---
 
 ## Article parsing approach
@@ -121,8 +131,27 @@ Flow:
 
 **Timeouts:** 20s for WebView load + 15s reset on `onLoadEnd` for Readability execution.
 
+**Retry:** failed parses are re-queued up to 2 times (`MAX_PARSE_RETRIES` in `_layout.tsx`).
+
 **Fallback:** if parsing yields no content (paywalled, JS-rendered SPA), show a
 "Tarayıcıda Aç" button — never crash or show a blank reader.
+
+**Readability.js bundling:** `scripts/rawStringTransformer.js` is registered as Metro's
+`babelTransformerPath` in `metro.config.js`. It intercepts the import of
+`@mozilla/readability/Readability.js` and returns the file contents as a raw string module,
+avoiding the need for a postinstall script or a generated source file.
+
+---
+
+## i18n
+
+All user-facing strings live in `lib/i18n.ts` as two typed translation objects (`tr`, `en`).
+Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m} min read\``).
+`lib/languageContext.tsx` provides `useLanguage()` which returns `{ lang, setLang, t }`.
+
+- `t` is the full translation object for the active language — use it everywhere instead of hardcoded strings
+- Language is persisted to AsyncStorage under the key `'app_language'`
+- Default language is `'tr'` (Turkish)
 
 ---
 
@@ -140,12 +169,13 @@ Flow:
 
 ### Design language
 
-- Primary accent: `#534AB7` (purple) — defined as `colors.primary` in `lib/colors.ts`
-- Offline indicator: `#1D9E75` (green dot) — `colors.success`
-- Error/archive: `#e53e3e` (red) — `colors.error`
-- All hardcoded color values must use `lib/colors.ts`; never write hex codes directly
+- Primary accent: `colors.primary` (`#534AB7`, purple)
+- Active/pressed primary: `colors.primaryDark` (`#3f369f`)
+- Offline indicator: `colors.success` (`#1D9E75`, green dot)
+- Error/archive: `colors.error` (`#e53e3e`)
+- All color values must use `lib/colors.ts` tokens; never write hex codes directly in components
 - Clean, minimal — content-first, no heavy chrome
-- No gradients, no shadows
+- No gradients; minimal elevation/shadow only on floating elements (FAB, modal dropdowns)
 
 ### List screen
 
@@ -153,7 +183,7 @@ Flow:
 - Green dot on card = offline-ready (content + images cached)
 - Purple dot = unread
 - Read articles are dimmed (opacity 0.65)
-- Filter chips: Tümü / Okunmamış / Çevrimdışı / Arşivlenmiş
+- Filter chips: Tümü / Okunmamış / Çevrimdışı / Arşivlenmiş (labels from `t.*`)
 - FAB (purple +) opens SaveUrlSheet bottom sheet
 
 ### Reader screen
@@ -161,7 +191,8 @@ Flow:
 - Thin purple progress bar at top tracks scroll position
 - Back button returns to list
 - Domain + çevrimdışı indicator below nav
-- Font size controls (A− / A+) in bottom bar, disabled at min/max limits
+- Font size controls (A− / A+) in bottom bar, disabled at min/max limits (12–36pt)
+- Font size persisted to AsyncStorage key `'reader_font_size'`; default 16pt
 - Read aloud (expo-speech) splits text into ≤4000 char chunks; uses article `lang` for TTS language, falls back to `'tr'`
 - Blockquotes styled with left purple border accent
 
@@ -184,10 +215,15 @@ Flow:
 - [x] Font size preference persisted via AsyncStorage
 - [x] Read aloud via expo-speech with chunking + language detection
 - [x] Swipe gestures (archive/unarchive, mark read/unread)
-- [x] SaveUrlSheet bottom sheet
-- [x] Parse failure fallback UI
-- [x] Shared color tokens (`lib/colors.ts`) and shared styles (`lib/sharedStyles.ts`)
-- [x] Turkish UI throughout
+- [x] SaveUrlSheet bottom sheet (non-blocking: sheet closes before fetch, fetch queues in background)
+- [x] Parse failure fallback UI with retry button
+- [x] Parse retry logic (up to 2 retries on failure)
+- [x] Shared color tokens (`lib/colors.ts`) — all hex codes banned from components
+- [x] Shared styles (`lib/sharedStyles.ts`)
+- [x] i18n support — Turkish/English with in-app language switcher (`lib/i18n.ts`, `lib/languageContext.tsx`)
+- [x] Default font size setting in settings screen
+- [x] Metro transformer for Readability.js (replaces postinstall script)
+- [x] DB initialization moved to `useEffect` to prevent splash screen freeze
 
 ### Phase 3 — Backend sync
 
@@ -201,10 +237,11 @@ Flow:
 ## Key constraints
 
 - Android only (no iOS considerations needed)
-- Turkish UI — all user-facing strings must be in Turkish
+- All user-facing strings must use `lib/i18n.ts` — never hardcode display strings
 - No Mercury Parser or any paid/external parsing API
 - App must be fully usable with no network connection
 - Backend is a future concern — do not block Phase 1 on it
 - Prefer concise, readable TypeScript — no over-engineering
 - Use functional components + hooks throughout
 - Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup
+- Never write hex color codes directly in components — always use `lib/colors.ts` tokens

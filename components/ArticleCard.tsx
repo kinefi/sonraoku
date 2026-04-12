@@ -58,7 +58,7 @@ export default function ArticleCard({ article, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     marginHorizontal: 16,
     marginVertical: 6,
     padding: 14,

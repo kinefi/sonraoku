@@ -16,8 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { queryClient } from '../../lib/queryClient';
 import * as Speech from 'expo-speech';
+import { queryClient } from '../../lib/queryClient';
 import { getArticleById, markArticleRead } from '../../lib/db';
 import { colors } from '../../lib/colors';
 import { getDomain, getReadTime } from '../../lib/utils';
@@ -230,7 +230,7 @@ export default function ArticleScreen() {
 
       {/* Content */}
       {article.html_content ? (
-        <ScrollView style={{ flex: 1 }} onScroll={handleScroll} scrollEventThrottle={16}>
+        <ScrollView style={styles.scroll} onScroll={handleScroll} scrollEventThrottle={16}>
           <Text style={[styles.articleTitle, { fontSize: fontSize + 6 }]}>{article.title}</Text>
           <ReaderView html={article.html_content} fontSize={fontSize} />
         </ScrollView>
@@ -290,7 +290,7 @@ export default function ArticleScreen() {
             <Ionicons
               name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
               size={20}
-              color="#fff"
+              color={colors.white}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -301,7 +301,7 @@ export default function ArticleScreen() {
             <Ionicons
               name="refresh-outline"
               size={20}
-              color="#fff"
+              color={colors.white}
             />
           </TouchableOpacity>
         </View>
@@ -313,7 +313,10 @@ export default function ArticleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
+  },
+  scroll: {
+    flex: 1,
   },
   progressTrack: {
     height: 3,
@@ -403,7 +406,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   openBtnText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -453,14 +456,14 @@ const styles = StyleSheet.create({
   },
   fontBtnText: {
     fontSize: 14,
-    color: '#333',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   fontBtnDisabled: {
     backgroundColor: colors.bgPage,
   },
   fontBtnTextDisabled: {
-    color: '#ccc',
+    color: colors.textFaint,
   },
   fabActionRow: {
     position: 'absolute',
@@ -483,7 +486,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
   },
   fabActionBtnActive: {
-    backgroundColor: '#3f369f',
+    backgroundColor: colors.primaryDark,
   },
   fabActionBtnDisabled: {
     opacity: 0.5,

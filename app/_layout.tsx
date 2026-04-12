@@ -58,20 +58,20 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
         <LanguageProvider>
-        <ParseQueueContext.Provider value={{ addToQueue }}>
-          {current && (
-            <ArticleParser
-              key={current.id}
-              html={current.html}
-              onParsed={(result) => handleParsed(current.id, result)}
-              onError={(error) => handleParseError(current.id, error)}
-            />
-          )}
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
-          </Stack>
-        </ParseQueueContext.Provider>
+          <ParseQueueContext.Provider value={{ addToQueue }}>
+            {current && (
+              <ArticleParser
+                key={current.id}
+                html={current.html}
+                onParsed={(result) => handleParsed(current.id, result)}
+                onError={(error) => handleParseError(current.id, error)}
+              />
+            )}
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
+            </Stack>
+          </ParseQueueContext.Provider>
         </LanguageProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

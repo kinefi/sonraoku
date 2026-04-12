@@ -86,7 +86,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
           <TextInput
             style={styles.input}
             placeholder={t.urlPlaceholder}
-            placeholderTextColor="#bbb"
+            placeholderTextColor={colors.placeholder}
             value={url}
             onChangeText={(t) => {
               setUrl(t);
@@ -108,7 +108,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.white} />
             ) : (
               <Text style={styles.saveBtnText}>{t.save}</Text>
             )}
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: '#ddd',
+    backgroundColor: colors.borderMid,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.borderMid,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveBtnText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 15,
     fontWeight: '600',
   },

@@ -109,7 +109,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     marginTop: 20,
     marginHorizontal: 16,
     borderRadius: 12,
@@ -184,13 +184,13 @@ const styles = StyleSheet.create({
     right: 32,
   },
   dropdown: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.white,
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOpacity: 0.12,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
