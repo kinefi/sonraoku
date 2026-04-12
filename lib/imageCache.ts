@@ -1,5 +1,15 @@
 import { Paths, File, Directory } from 'expo-file-system';
 
+const IMAGE_DOWNLOAD_TIMEOUT_MS = 15_000;
+
+async function downloadWithTimeout(url: string, dest: File): Promise<{ uri: string }> {
+  const download = File.downloadFileAsync(url, dest);
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Download timed out')), IMAGE_DOWNLOAD_TIMEOUT_MS)
+  );
+  return Promise.race([download, timeout]);
+}
+
 function extractImageUrls(html: string): string[] {
   const urls: string[] = [];
   const regex = /src=["'](https?:\/\/[^"']+)["']/gi;
@@ -33,7 +43,7 @@ export async function cacheArticleImages(html: string, articleId: string): Promi
   const results = await Promise.allSettled(
     urls.map(async (url, i) => {
       const dest = new File(dir, urlToFilename(url, i));
-      const downloaded = await File.downloadFileAsync(url, dest);
+      const downloaded = await downloadWithTimeout(url, dest);
       return { url, localUri: downloaded.uri };
     })
   );

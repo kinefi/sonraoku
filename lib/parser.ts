@@ -1,8 +1,10 @@
 import readabilitySource from './readabilitySource';
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 export async function fetchRawHtml(url: string): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {

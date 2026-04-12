@@ -3,24 +3,26 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Article } from '../lib/db';
 import { colors } from '../lib/colors';
 import { getDomain, getReadTime } from '../lib/utils';
+import { useLanguage } from '../lib/languageContext';
 
 type Props = {
   article: Article;
   onPress: () => void;
 };
 
-function getRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `${mins}dk önce`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}sa önce`;
-  return `${Math.floor(hrs / 24)}g önce`;
-}
-
 export default function ArticleCard({ article, onPress }: Props) {
+  const { t } = useLanguage();
   const isOffline = article.html_content !== null;
   const isRead = !!article.is_read;
+
+  function getRelativeTime(ts: number): string {
+    const diff = Math.max(0, Date.now() - ts);
+    const mins = Math.floor(diff / 60_000);
+    if (mins < 60) return t.minutesAgo(mins);
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return t.hoursAgo(hrs);
+    return t.daysAgo(Math.floor(hrs / 24));
+  }
 
   return (
     <TouchableOpacity
@@ -37,7 +39,7 @@ export default function ArticleCard({ article, onPress }: Props) {
       </View>
 
       <Text style={styles.title} numberOfLines={2}>
-        {article.title ?? 'Yükleniyor…'}
+        {article.title ?? t.loading}
       </Text>
 
       {!!article.excerpt && (
@@ -48,7 +50,7 @@ export default function ArticleCard({ article, onPress }: Props) {
 
       <View style={styles.meta}>
         <Text style={styles.metaText}>{getRelativeTime(article.saved_at)}</Text>
-        {isOffline && <Text style={styles.metaText}>{getReadTime(article.html_content)}</Text>}
+        {isOffline && <Text style={styles.metaText}>{t.readTime(getReadTime(article.html_content))}</Text>}
       </View>
     </TouchableOpacity>
   );

@@ -4,6 +4,7 @@ export type ParseQueueItem = {
   id: string;
   html: string;
   url: string;
+  retries?: number;
 };
 
 type ParseQueueContextType = {

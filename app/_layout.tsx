@@ -8,6 +8,9 @@ import { ParseQueueContext, ParseQueueItem } from '../lib/parseQueue';
 import { updateArticleContent } from '../lib/db';
 import { cacheArticleImages } from '../lib/imageCache';
 import ArticleParser, { ParseResult } from '../components/ArticleParser';
+import { LanguageProvider } from '../lib/languageContext';
+
+const MAX_PARSE_RETRIES = 2;
 
 export default function RootLayout() {
   const [parseQueue, setParseQueue] = useState<ParseQueueItem[]>([]);
@@ -17,7 +20,12 @@ export default function RootLayout() {
   }, []);
 
   const handleParsed = useCallback(async (id: string, result: ParseResult) => {
-    const cachedHtml = await cacheArticleImages(result.content, id);
+    let cachedHtml = result.content;
+    try {
+      cachedHtml = await cacheArticleImages(result.content, id);
+    } catch (e) {
+      console.warn('Image caching failed, using original HTML:', e);
+    }
     updateArticleContent(id, result.title, result.excerpt, cachedHtml, result.lang);
     queryClient.invalidateQueries({ queryKey: ['articles'] });
     queryClient.invalidateQueries({ queryKey: ['article', id] });
@@ -26,7 +34,14 @@ export default function RootLayout() {
 
   const handleParseError = useCallback((id: string, error?: string) => {
     console.warn('Parse failed for article', id, error ? `- ${error}` : '');
-    setParseQueue((prev) => prev.slice(1));
+    setParseQueue((prev) => {
+      const current = prev[0];
+      const retries = current?.retries ?? 0;
+      if (retries < MAX_PARSE_RETRIES) {
+        return [...prev.slice(1), { ...current, retries: retries + 1 }];
+      }
+      return prev.slice(1);
+    });
   }, []);
 
   const current = parseQueue[0];
@@ -34,6 +49,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
+        <LanguageProvider>
         <ParseQueueContext.Provider value={{ addToQueue }}>
           {current && (
             <ArticleParser
@@ -48,6 +64,7 @@ export default function RootLayout() {
             <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
           </Stack>
         </ParseQueueContext.Provider>
+        </LanguageProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

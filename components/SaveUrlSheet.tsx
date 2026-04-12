@@ -15,6 +15,7 @@ import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
 import { fetchRawHtml, buildParserHtml } from '../lib/parser';
 import { useParseQueue } from '../lib/parseQueue';
+import { useLanguage } from '../lib/languageContext';
 
 type Props = {
   visible: boolean;
@@ -33,6 +34,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { addToQueue } = useParseQueue();
+  const { t } = useLanguage();
 
   async function handleSave() {
     const trimmed = url.trim();
@@ -42,7 +44,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     try {
       new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
     } catch {
-      setError('Geçerli bir URL girin');
+      setError(t.invalidUrl);
       return;
     }
 
@@ -53,18 +55,14 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     const id = generateId();
     insertArticle(id, fullUrl);
     queryClient.invalidateQueries({ queryKey: ['articles'] });
+    setLoading(false);
+    setUrl('');
+    onClose();
 
-    try {
-      const rawHtml = await fetchRawHtml(fullUrl);
-      addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl });
-    } catch (error) {
-      console.warn('Failed to parse article content:', error);
-      // Article saved without content — reader will show "open in browser"
-    } finally {
-      setLoading(false);
-      setUrl('');
-      onClose();
-    }
+    // Fetch + queue in background — sheet is already closed
+    fetchRawHtml(fullUrl)
+      .then((rawHtml) => addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl }))
+      .catch(() => {/* article saved without content — reader shows fallback */});
   }
 
   function handleClose() {
@@ -83,11 +81,11 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       >
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.heading}>Yazı Kaydet</Text>
+          <Text style={styles.heading}>{t.saveArticle}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="https://ornek.com/makale"
+            placeholder={t.urlPlaceholder}
             placeholderTextColor="#bbb"
             value={url}
             onChangeText={(t) => {
@@ -112,7 +110,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.saveBtnText}>Kaydet</Text>
+              <Text style={styles.saveBtnText}>{t.save}</Text>
             )}
           </TouchableOpacity>
         </View>

@@ -6,9 +6,8 @@ export function getDomain(url: string): string {
   }
 }
 
-export function getReadTime(html: string | null): string {
-  if (!html) return '';
+export function getReadTime(html: string | null): number {
+  if (!html) return 0;
   const words = html.replace(/<[^>]+>/g, '').split(/\s+/).length;
-  const mins = Math.max(1, Math.ceil(words / 200));
-  return `${mins} dk okuma`;
+  return Math.max(1, Math.ceil(words / 200));
 }

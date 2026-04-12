@@ -24,11 +24,15 @@ import { getDomain, getReadTime } from '../../lib/utils';
 import { useParseQueue } from '../../lib/parseQueue';
 import { fetchRawHtml, buildParserHtml } from '../../lib/parser';
 import ReaderView from '../../components/ReaderView';
+import { useLanguage } from '../../lib/languageContext';
 
 const FONT_SIZE_KEY = 'reader_font_size';
 const FONT_SIZE_DEFAULT = 16;
 const FONT_SIZE_MIN = 12;
 const FONT_SIZE_MAX = 36;
+const SPEECH_CHUNK_MAX_LEN = 4000;
+const SPEECH_RATE = 1.0;
+const SPEECH_SAFETY_TIMEOUT_MS = 30_000;
 
 function splitIntoChunks(text: string, maxLen: number): string[] {
   const chunks: string[] = [];
@@ -64,12 +68,15 @@ function htmlToPlainText(html: string): string {
 
 export default function ArticleScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useLanguage();
   const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const speechChunksRef = useRef<string[]>([]);
   const speechChunkIndexRef = useRef(0);
+  const speechSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speakNextChunkRef = useRef<() => void>(() => {});
   speakNextChunkRef.current = () => {
+    if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
     const idx = speechChunkIndexRef.current;
     const chunks = speechChunksRef.current;
     if (idx >= chunks.length) {
@@ -77,12 +84,19 @@ export default function ArticleScreen() {
       return;
     }
     speechChunkIndexRef.current = idx + 1;
+    speechSafetyTimerRef.current = setTimeout(() => setIsSpeaking(false), SPEECH_SAFETY_TIMEOUT_MS);
     Speech.speak(chunks[idx], {
       language: article?.lang || 'tr',
-      rate: 0.9,
+      rate: SPEECH_RATE,
       onDone: () => speakNextChunkRef.current(),
-      onStopped: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
+      onStopped: () => {
+        if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
+        setIsSpeaking(false);
+      },
+      onError: () => {
+        if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
+        setIsSpeaking(false);
+      },
     });
   };
   const scrollProgress = useRef(new Animated.Value(0)).current;
@@ -94,7 +108,7 @@ export default function ArticleScreen() {
 
   useEffect(() => {
     AsyncStorage.getItem(FONT_SIZE_KEY)
-      .then((val) => { if (val) setFontSize(parseInt(val, 10)); })
+      .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
       .catch(() => {});
   }, []);
 
@@ -102,6 +116,7 @@ export default function ArticleScreen() {
   useEffect(() => {
     return () => {
       Speech.stop();
+      if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
       if (fetchStatusTimerRef.current) clearTimeout(fetchStatusTimerRef.current);
     };
   }, []);
@@ -121,10 +136,10 @@ export default function ArticleScreen() {
     enabled: !!id,
   });
 
-
   useEffect(() => {
     if (article && !article.is_read) {
       markArticleRead(article.id);
+      queryClient.setQueryData(['article', article.id], { ...article, is_read: 1 });
       queryClient.invalidateQueries({ queryKey: ['articles'] });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,7 +155,7 @@ export default function ArticleScreen() {
     }
     if (!article?.html_content) return;
     const text = htmlToPlainText(article.html_content);
-    speechChunksRef.current = splitIntoChunks(text, 4000);
+    speechChunksRef.current = splitIntoChunks(text, SPEECH_CHUNK_MAX_LEN);
     speechChunkIndexRef.current = 0;
     setIsSpeaking(true);
     speakNextChunkRef.current();
@@ -193,11 +208,11 @@ export default function ArticleScreen() {
       {/* Nav */}
       <View style={styles.nav}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Geri</Text>
+          <Text style={styles.backText}>{t.back}</Text>
         </TouchableOpacity>
         <View style={styles.navRight}>
           <TouchableOpacity onPress={() => Linking.openURL(article.url)}>
-            <Text style={styles.shareText}>Paylaş</Text>
+            <Text style={styles.shareText}>{t.share}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -208,7 +223,7 @@ export default function ArticleScreen() {
         {article.html_content && (
           <View style={styles.offlineIndicator}>
             <View style={styles.offlineDot} />
-            <Text style={styles.offlineText}>çevrimdışı</Text>
+            <Text style={styles.offlineText}>{t.offlineLabel}</Text>
           </View>
         )}
       </View>
@@ -222,26 +237,24 @@ export default function ArticleScreen() {
       ) : (
         <View style={styles.fallback}>
           <Text style={styles.fallbackText}>
-            {article.title
-              ? `"${article.title}" yüklenemedi.`
-              : 'Yazı içeriği mevcut değil.'}
+            {article.title ? t.couldNotLoad(article.title) : t.noContent}
           </Text>
           <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(article.url)}>
-            <Text style={styles.openBtnText}>Tarayıcıda Aç</Text>
+            <Text style={styles.openBtnText}>{t.openInBrowser}</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.fetchBtn, isFetching && styles.fetchBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.fetchBtn, isFetching && styles.fetchBtnDisabled]}
             onPress={handleFetchAgain}
             disabled={isFetching}
           >
             {isFetching ? (
-              <ActivityIndicator size="small" color="#534AB7" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : fetchStatus === 'success' ? (
-              <Text style={styles.fetchBtnTextSuccess}>✓ İndirme Tamamlandı</Text>
+              <Text style={styles.fetchBtnTextSuccess}>{t.downloadSuccess}</Text>
             ) : fetchStatus === 'error' ? (
-              <Text style={styles.fetchBtnTextError}>✗ İndirme Başarısız</Text>
+              <Text style={styles.fetchBtnTextError}>{t.downloadError}</Text>
             ) : (
-              <Text style={styles.fetchBtnText}>Çevrimdışı İndir</Text>
+              <Text style={styles.fetchBtnText}>{t.downloadOffline}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -265,7 +278,7 @@ export default function ArticleScreen() {
             <Text style={[styles.fontBtnText, { fontSize: 16 }, fontSize >= FONT_SIZE_MAX && styles.fontBtnTextDisabled]}>A+</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.readTime}>{getReadTime(article.html_content)}</Text>
+        <Text style={styles.readTime}>{article.html_content ? t.readTime(getReadTime(article.html_content)) : ''}</Text>
       </View>
 
       {article.html_content && (

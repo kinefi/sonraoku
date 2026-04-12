@@ -12,6 +12,7 @@ npm-debug.*
 web-build/
 .vscode
 .idea
+lib/readabilitySource.ts
 
 # macOS
 .DS_Store

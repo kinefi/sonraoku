@@ -15,15 +15,9 @@ import { colors } from '../../lib/colors';
 import { sharedStyles } from '../../lib/sharedStyles';
 import SwipeableArticleCard from '../../components/SwipeableArticleCard';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
+import { useLanguage } from '../../lib/languageContext';
 
 type Filter = 'all' | 'unread' | 'offline' | 'archived';
-
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Tümü' },
-  { key: 'unread', label: 'Okunmamış' },
-  { key: 'offline', label: 'Çevrimdışı' },
-  { key: 'archived', label: 'Arşivlenmiş' },
-];
 
 function applyFilter(articles: Article[], filter: Filter): Article[] {
   switch (filter) {
@@ -41,6 +35,14 @@ function applyFilter(articles: Article[], filter: Filter): Article[] {
 export default function Index() {
   const [filter, setFilter] = useState<Filter>('all');
   const [showSheet, setShowSheet] = useState(false);
+  const { t } = useLanguage();
+
+  const filters: { key: Filter; label: string }[] = [
+    { key: 'all', label: t.all },
+    { key: 'unread', label: t.unread },
+    { key: 'offline', label: t.offline },
+    { key: 'archived', label: t.archived },
+  ];
 
   const { data: articles = [] } = useQuery({
     queryKey: ['articles'],
@@ -54,12 +56,12 @@ export default function Index() {
       <StatusBar barStyle="dark-content" translucent={false} />
 
       <View style={sharedStyles.header}>
-        <Text style={sharedStyles.headerTitle}>Okunacaklar</Text>
+        <Text style={sharedStyles.headerTitle}>{t.readingList}</Text>
       </View>
 
       {/* Filter chips */}
       <View style={styles.filterRow}>
-        {FILTERS.map(({ key, label }) => (
+        {filters.map(({ key, label }) => (
           <TouchableOpacity
             key={key}
             style={[styles.chip, filter === key && styles.chipActive]}
@@ -79,8 +81,8 @@ export default function Index() {
         contentContainerStyle={filtered.length === 0 ? styles.emptyList : styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Herhangi bir yazı yok.</Text>
-            <Text style={styles.emptyHint}>İlk yazınızı eklemek için + tuşuna basın.</Text>
+            <Text style={styles.emptyText}>{t.noArticles}</Text>
+            <Text style={styles.emptyHint}>{t.noArticlesHint}</Text>
           </View>
         }
       />
