@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Article } from '../lib/db';
-import { colors } from '../lib/colors';
+import { colors } from '../lib/theme';
 import { getDomain, getReadTime } from '../lib/utils';
 import { useLanguage } from '../lib/languageContext';
 

@@ -11,10 +11,10 @@ import {
   Platform,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { colors } from '../lib/colors';
+import { colors } from '../lib/theme';
 import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
-import { fetchRawHtml, buildParserHtml } from '../lib/parser';
+import { fetchRawHtml, buildParserHtml } from '../lib/utils';
 import { useParseQueue } from '../lib/parseQueue';
 import { useLanguage } from '../lib/languageContext';
 

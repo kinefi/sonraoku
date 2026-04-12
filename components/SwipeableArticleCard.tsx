@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/colors';
+import { colors } from '../lib/theme';
 // eslint-disable-next-line import/no-deprecated
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { queryClient } from '../lib/queryClient';

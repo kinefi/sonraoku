@@ -10,14 +10,15 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getArticles, Article, archiveAllReadArticles } from '../../lib/db';
-import { colors } from '../../lib/colors';
+import { colors } from '../../lib/theme';
 import { queryClient } from '../../lib/queryClient';
-import { sharedStyles } from '../../lib/sharedStyles';
+import { sharedStyles } from '../../lib/theme';
 import SwipeableArticleCard from '../../components/SwipeableArticleCard';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 import { useLanguage } from '../../lib/languageContext';
@@ -55,6 +56,7 @@ export default function Index() {
   const filtered = data?.pages.flat() ?? [];
 
   const handleArchiveAllRead = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(t.archiveAllRead, t.confirmArchiveRead, [
       { text: t.back, style: 'cancel' },
       {
@@ -73,11 +75,6 @@ export default function Index() {
 
       <View style={sharedStyles.header}>
         <Text style={sharedStyles.headerTitle}>{t.readingList}</Text>
-        {filter !== 'archived' && (
-          <TouchableOpacity onPress={handleArchiveAllRead} style={styles.headerAction}>
-            <Ionicons name="archive-outline" size={24} color={colors.primary} />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Search Bar */}
@@ -150,8 +147,21 @@ export default function Index() {
         }
       />
 
+      {/* Archive All Read FAB (Left) */}
+      {filter !== 'archived' && (
+        <TouchableOpacity 
+          style={styles.fabLeft} 
+          onPress={handleArchiveAllRead}
+        >
+          <Ionicons name="archive-outline" size={24} color="#fff" />
+        </TouchableOpacity>
+      )}
+
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setShowSheet(true)}>
+      <TouchableOpacity style={styles.fab} onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowSheet(true);
+      }}>
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
 
@@ -247,6 +257,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.placeholder,
     marginTop: 4,
+  },
+  fabLeft: {
+    position: 'absolute',
+    left: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   fab: {
     position: 'absolute',

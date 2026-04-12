@@ -10,10 +10,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sharedStyles } from '../../lib/sharedStyles';
-import { colors, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HighlightColor } from '../../lib/colors';
+import { sharedStyles } from '../../lib/theme';
+import { colors, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HighlightColor } from '../../lib/theme';
 import { useLanguage } from '../../lib/languageContext';
-import { LANGUAGES, Lang } from '../../lib/i18n';
+import { LANGUAGES, Lang } from '../../lib/languageContext';
 
 const FONT_SIZE_KEY = 'reader_font_size';
 const FONT_SIZE_DEFAULT = 16;

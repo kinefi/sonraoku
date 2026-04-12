@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,8 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import { getAllHighlights, deleteHighlight, HighlightWithArticle } from '../../lib/db';
 import { queryClient } from '../../lib/queryClient';
 import { useLanguage } from '../../lib/languageContext';
-import { colors } from '../../lib/colors';
-import { sharedStyles } from '../../lib/sharedStyles';
+import { colors, sharedStyles } from '../../lib/theme';
 
 export default function HighlightsScreen() {
   const { t } = useLanguage();
@@ -19,6 +19,7 @@ export default function HighlightsScreen() {
   });
 
   const handleDelete = (id: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(t.delete, t.confirmDelete, [
       { text: t.back, style: 'cancel' },
       {
@@ -45,8 +46,8 @@ export default function HighlightsScreen() {
   };
 
   const handleCopy = async (text: string) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await Clipboard.setStringAsync(text);
-    // You could add a Toast or Haptic feedback here if desired
   };
 
   return (

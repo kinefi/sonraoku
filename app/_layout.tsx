@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../lib/queryClient';
 import { ParseQueueContext, ParseQueueItem } from '../lib/parseQueue';
 import { initDb, updateArticleContent } from '../lib/db';
-import { cacheArticleImages } from '../lib/imageCache';
+import { cacheArticleImages } from '../lib/utils';
 import ArticleParser, { ParseResult } from '../components/ArticleParser';
 import { LanguageProvider } from '../lib/languageContext';
 

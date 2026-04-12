@@ -6,8 +6,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllTags } from '../../lib/db';
 import { useLanguage } from '../../lib/languageContext';
-import { colors } from '../../lib/colors';
-import { sharedStyles } from '../../lib/sharedStyles';
+import { colors, sharedStyles } from '../../lib/theme';
 
 export default function TagsScreen() {
   const { t } = useLanguage();
