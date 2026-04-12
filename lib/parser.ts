@@ -1,4 +1,4 @@
-import readabilitySource from './readabilitySource';
+import readabilitySource from '@mozilla/readability/Readability.js';
 
 const FETCH_TIMEOUT_MS = 10_000;
 

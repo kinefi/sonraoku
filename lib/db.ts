@@ -2,7 +2,8 @@ import * as SQLite from 'expo-sqlite';
 
 const db = SQLite.openDatabaseSync('sonraoku.db');
 
-db.execSync(`CREATE TABLE IF NOT EXISTS articles (
+export function initDb(): void {
+  db.execSync(`CREATE TABLE IF NOT EXISTS articles (
   id TEXT PRIMARY KEY,
   url TEXT NOT NULL,
   title TEXT,
@@ -16,18 +17,19 @@ db.execSync(`CREATE TABLE IF NOT EXISTS articles (
   synced_at INTEGER
 )`);
 
-db.execSync(`CREATE TABLE IF NOT EXISTS cached_images (
+  db.execSync(`CREATE TABLE IF NOT EXISTS cached_images (
   url TEXT PRIMARY KEY,
   local_path TEXT NOT NULL,
   article_id TEXT NOT NULL
 )`);
 
-// Migration: add lang column to existing installs
-const langColumnExists = db.getFirstSync<{ count: number }>(
-  "SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'lang'"
-);
-if (!langColumnExists?.count) {
-  db.execSync('ALTER TABLE articles ADD COLUMN lang TEXT');
+  // Migration: add lang column to existing installs
+  const langColumnExists = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'lang'"
+  );
+  if (!langColumnExists?.count) {
+    db.execSync('ALTER TABLE articles ADD COLUMN lang TEXT');
+  }
 }
 
 export type Article = {
