@@ -84,7 +84,12 @@ function send(msg) {
   window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify(msg));
 }
 
+var lastScroll = 0;
 window.addEventListener('scroll', function() {
+  var now = Date.now();
+  if (now - lastScroll < 32) return; // Throttle to ~30fps
+  lastScroll = now;
+
   var scrollable = document.body.scrollHeight - window.innerHeight;
   if (scrollable > 0) send({ type: 'scroll', progress: window.scrollY / scrollable });
 });
@@ -148,6 +153,16 @@ function findAndWrap(text, ctxBefore, ctxAfter, id, color) {
   wrapRange(range, id, color);
   return true;
 }
+
+window.updateHighlights = function(hs) {
+  // Clear existing marks to prevent duplicates if needed, 
+  // or just find and wrap new ones.
+  var marks = document.querySelectorAll('mark[data-id]');
+  var existingIds = Array.from(marks).map(m => m.dataset.id);
+  
+  var newHs = hs.filter(h => !existingIds.includes(h.id));
+  injectHighlights(newHs);
+};
 
 function injectHighlights(hs) {
   for (var i = 0; i < hs.length; i++) {

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -82,14 +82,14 @@ export default function ArticleScreen() {
     enabled: !!id,
   });
 
-  function handleScrollProgress(progress: number) {
+  const handleScrollProgress = useCallback((progress: number) => {
     scrollProgress.setValue(progress);
-  }
+  }, [scrollProgress]);
 
-  function handleAddTag() {
+  const handleAddTag = useCallback(() => {
     runAddTag(newTag);
     setNewTag('');
-  }
+  }, [runAddTag, newTag]);
 
   if (!article) return null;
 
@@ -147,27 +147,31 @@ export default function ArticleScreen() {
         hasContent={!!article.html_content}
       />
 
-      <HighlightsModal
-        visible={showHighlights}
-        onClose={() => setShowHighlights(false)}
-        highlights={highlights}
-        defaultColor={defaultColor}
-        onSelect={(highlightId) => {
-          setTargetHighlightId(highlightId);
-          setShowHighlights(false);
-          setTimeout(() => setTargetHighlightId(null), 100);
-        }}
-      />
+      {showHighlights && (
+        <HighlightsModal
+          visible={showHighlights}
+          onClose={() => setShowHighlights(false)}
+          highlights={highlights}
+          defaultColor={defaultColor}
+          onSelect={(highlightId) => {
+            setTargetHighlightId(highlightId);
+            setShowHighlights(false);
+            setTimeout(() => setTargetHighlightId(null), 100);
+          }}
+        />
+      )}
 
-      <TagsModal
-        visible={showTags}
-        onClose={() => setShowTags(false)}
-        tags={tags}
-        newTag={newTag}
-        setNewTag={setNewTag}
-        onAddTag={handleAddTag}
-        onRemoveTag={handleRemoveTag}
-      />
+      {showTags && (
+        <TagsModal
+          visible={showTags}
+          onClose={() => setShowTags(false)}
+          tags={tags}
+          newTag={newTag}
+          setNewTag={setNewTag}
+          onAddTag={handleAddTag}
+          onRemoveTag={handleRemoveTag}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -197,39 +201,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     opacity: 0.45,
   },
-  fabActionRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 24,
-    alignItems: 'center',
-  },
-  fabPill: {
-    flexDirection: 'row',
-    gap: 4,
-    backgroundColor: colors.bgMuted,
-    borderRadius: 32,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    ...sharedStyles.floating,
-  },
-  fabActionBtn: {
-    width: 48,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabActionBtnActive: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-  },
-  fabActionBtnDisabled: {
-    opacity: 0.5,
-  },
-  fabFontText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primary,
-  }
 });

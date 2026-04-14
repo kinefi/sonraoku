@@ -35,6 +35,7 @@ The app supports Turkish and English with an in-app language switcher in setting
 - **@react-native-async-storage/async-storage** — persists reader font size preference and
   selected UI language (`'reader_font_size'` and `'app_language'` keys)
 - **expo-background-fetch + expo-task-manager** — background sync (Phase 3, not yet implemented)
+- **expo-clipboard** — copies highlights to device clipboard
 - **ESLint** (`eslint-config-expo`) + **Prettier** — linting and formatting
 
 ### Backend (Phase 3 — not yet built)
@@ -55,29 +56,38 @@ app/
   (tabs)/
     _layout.tsx        # bottom tab navigator
     index.tsx          # article list screen
+    tags.tsx           # browse articles by tags
+    highlights.tsx     # global feed of all highlights
     settings.tsx       # language + font size settings
   article/[id].tsx     # reader screen
 components/
   ArticleCard.tsx      # card used in list screen
   ArticleParser.tsx    # hidden WebView that runs Readability
-  ReaderView.tsx       # renders article HTML
-  SaveUrlSheet.tsx     # bottom sheet triggered by FAB
-  SwipeableArticleCard.tsx  # wraps ArticleCard with swipe-to-archive/read
+  ArticleMetaHeader.tsx # reader screen header
+  ArticleFallback.tsx  # empty/error state for reader
+  ReaderView.tsx       # renders article HTML via WebView
+  ReaderFabPill.tsx    # floating actions in reader
+  SwipeableArticleCard.tsx # wraps ArticleCard with swipe gestures
+  HighlightsModal.tsx
+  TagsModal.tsx
+  SaveUrlSheet.tsx
+  SearchBar.tsx
+  FabGroup.tsx
 lib/
-  colors.ts            # design token colors — single source of truth for all color values
-  db.ts                # SQLite setup, schema, CRUD helpers; call initDb() on app start
-  i18n.ts              # translation strings for TR/EN; function-based strings for parameterized output
-  imageCache.ts        # downloads + caches article images via expo-file-system
-  languageContext.tsx  # LanguageProvider + useLanguage hook (lang, setLang, t)
-  parseQueue.tsx       # React context for the article parse queue
-  parser.ts            # fetchRawHtml + buildParserHtml
-  queryClient.ts       # TanStack Query client setup
-  sharedStyles.ts      # shared StyleSheet definitions used across screens
-  sync.ts              # sync engine (placeholder for Phase 3)
-  utils.ts             # shared helpers: getDomain, getReadTime (returns number of minutes)
-metro.config.js        # hooks rawStringTransformer as babelTransformerPath
+  db.ts                # SQLite setup, schema, and all CRUD helpers
+  utils.ts             # shared helpers (domain, read time, fetchRawHtml)
+  translations.ts      # TR/EN strings and interpolation logic
+  languageContext.tsx  # LanguageProvider + useLanguage hook (translate helper)
+  hooks.ts             # Shared screen logic (Settings, Speech, Actions)
+  imageCache.ts        # Downloads + local caching of article images
+  parseQueue.tsx       # React context for background article parsing
+  queryClient.ts       # TanStack Query configuration
+  theme.ts             # Design tokens (colors, shared styles, highlights)
+  readerAssets.ts      # CSS and JS injected into the reader WebView
+  htmlBuilder.ts       # Builder for the parser WebView
+  constants.ts         # Global keys (Storage, etc)
 scripts/
-  rawStringTransformer.js  # Metro transformer: serves @mozilla/readability/Readability.js as raw string
+  rawStringTransformer.js  # Serves @mozilla/readability/Readability.js as raw string
 ```
 
 ---
@@ -103,6 +113,26 @@ CREATE TABLE IF NOT EXISTS cached_images (
   url TEXT PRIMARY KEY,
   local_path TEXT NOT NULL,
   article_id TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS highlights (
+  id TEXT PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  selected_text TEXT NOT NULL,
+  context_before TEXT NOT NULL,
+  context_after TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  name TEXT UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS article_tags (
+  article_id TEXT,
+  tag_id TEXT,
+  PRIMARY KEY (article_id, tag_id)
 );
 ```
 
@@ -145,12 +175,13 @@ avoiding the need for a postinstall script or a generated source file.
 
 ## i18n
 
-All user-facing strings live in `lib/i18n.ts` as two typed translation objects (`tr`, `en`).
-Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m} min read\``).
-`lib/languageContext.tsx` provides `useLanguage()` which returns `{ lang, setLang, t }`.
+All user-facing strings live in `lib/translations.ts` as two typed translation objects (`tr`, `en`).
+Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`).
+`lib/languageContext.tsx` provides `useLanguage()` which returns `{ lang, setLang, t, translate, isReady }`.
 
 - `t` is the full translation object for the active language — use it everywhere instead of hardcoded strings
-- Language is persisted to AsyncStorage under the key `'app_language'`
+- `translate(key, params)` handles string interpolation for parameterized values
+- Language is persisted to AsyncStorage under the key defined in `STORAGE_KEYS.LANGUAGE`
 - Default language is `'tr'` (Turkish)
 
 ---
@@ -173,7 +204,7 @@ Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m
 - Active/pressed primary: `colors.primaryDark` (`#3f369f`)
 - Offline indicator: `colors.success` (`#1D9E75`, green dot)
 - Error/archive: `colors.error` (`#e53e3e`)
-- All color values must use `lib/colors.ts` tokens; never write hex codes directly in components
+ - All color values must use `lib/theme.ts` tokens; never write hex codes directly in components
 - Clean, minimal — content-first, no heavy chrome
 - No gradients; minimal elevation/shadow only on floating elements (FAB, modal dropdowns)
 
@@ -203,7 +234,7 @@ Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m
 ### Phase 1 — Core loop (offline-only, no backend)
 
 - [x] `lib/db.ts` — SQLite schema + CRUD helpers
-- [x] `lib/parser.ts` — fetchRawHtml + buildParserHtml
+- [x] `lib/utils.ts` — fetchRawHtml + buildParserHtml
 - [x] `components/ArticleParser.tsx` — hidden WebView component
 - [x] `app/(tabs)/index.tsx` — article list reading from SQLite
 - [x] `app/article/[id].tsx` — reader view with react-native-render-html
@@ -218,16 +249,18 @@ Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m
 - [x] SaveUrlSheet bottom sheet (non-blocking: sheet closes before fetch, fetch queues in background)
 - [x] Parse failure fallback UI with retry button
 - [x] Parse retry logic (up to 2 retries on failure)
-- [x] Shared color tokens (`lib/colors.ts`) — all hex codes banned from components
-- [x] Shared styles (`lib/sharedStyles.ts`)
+- [x] Shared design tokens (`lib/theme.ts`) — all hex codes banned from components
 - [x] i18n support — Turkish/English with in-app language switcher (`lib/i18n.ts`, `lib/languageContext.tsx`)
 - [x] Default font size setting in settings screen
 - [x] Metro transformer for Readability.js (replaces postinstall script)
 - [x] DB initialization moved to `useEffect` to prevent splash screen freeze
+- [X] Article search functionality to filter articles
+- [X] Show only 20 recent articles in list and load more when list pulled down
+- [X] Add article tagging mechanism
 
 ### Phase 3 — Backend sync
 
-- [ ] FastAPI + PostgreSQL (Docker Compose) or maybe a better option like Expo routers backend or from Google ecosystem like firebase for simple backend? Let's plan first.
+- [ ] Expo routers backend or from Google ecosystem like firebase for simple backend? Let's plan first.
 - [ ] Move parsing to backend
 - [ ] JWT auth
 - [ ] Delta sync endpoint + sync engine
@@ -244,4 +277,4 @@ Parameterized strings are plain functions (e.g., `readTime: (m: number) => \`${m
 - Prefer concise, readable TypeScript — no over-engineering
 - Use functional components + hooks throughout
 - Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup
-- Never write hex color codes directly in components — always use `lib/colors.ts` tokens
+- Never write hex color codes directly in components — always use `lib/theme.ts` tokens
