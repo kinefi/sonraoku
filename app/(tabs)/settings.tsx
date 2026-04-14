@@ -6,6 +6,7 @@ import {
   Modal,
   StyleSheet,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sharedStyles } from '../../lib/theme';
 import { colors, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HighlightColor } from '../../lib/theme';
 import { useLanguage } from '../../lib/languageContext';
-import { LANGUAGES, Lang } from '../../lib/languageContext';
+import { LANGUAGES, Lang } from '../../lib/translations';
+import { getTotalCacheSize, clearAllImageCache } from '../../lib/imageCache';
+import { formatBytes } from '../../lib/utils';
 
 const FONT_SIZE_KEY = 'reader_font_size';
 const FONT_SIZE_DEFAULT = 16;
@@ -26,8 +29,11 @@ export default function SettingsScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
   const [highlightColor, setHighlightColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
+  const [cacheSize, setCacheSize] = useState<number>(0);
 
   useEffect(() => {
+    updateCacheSize();
+
     AsyncStorage.getItem(FONT_SIZE_KEY)
       .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
       .catch((e) => { console.error(e) });
@@ -35,6 +41,26 @@ export default function SettingsScreen() {
       .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setHighlightColor(val as HighlightColor); })
       .catch((e) => { console.error(e) });
   }, []);
+
+  const updateCacheSize = async () => {
+    const size = await getTotalCacheSize();
+    setCacheSize(size);
+  };
+
+  const handleClearCache = async () => {
+    Alert.alert(t.confirmDelete, t.clearCache, [
+      { text: t.back, style: 'cancel' },
+      { 
+        text: t.delete, 
+        style: 'destructive', 
+        onPress: async () => {
+          await clearAllImageCache();
+          await updateCacheSize();
+          Alert.alert(t.cacheCleared);
+        } 
+      },
+    ]);
+  };
 
   function changeFontSize(delta: number) {
     const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
@@ -103,6 +129,17 @@ export default function SettingsScreen() {
               onPress={() => changeHighlightColor(color)}
             />
           ))}
+        </View>
+      </View>
+
+      {/* Storage Usage */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.storageUsage}</Text>
+        <View style={styles.storageRow}>
+          <Text style={styles.usageText}>{formatBytes(cacheSize)}</Text>
+          <TouchableOpacity onPress={handleClearCache}>
+            <Text style={styles.clearText}>{t.clearCache}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -214,6 +251,24 @@ const styles = StyleSheet.create({
   },
   colorSwatchSelected: {
     borderColor: colors.textPrimary,
+  },
+  storageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  usageText: {
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  clearText: {
+    fontSize: 15,
+    color: colors.error,
+    fontWeight: '600',
   },
   backdrop: {
     position: 'absolute',

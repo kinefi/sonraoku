@@ -7,10 +7,12 @@ const IMAGE_DOWNLOAD_TIMEOUT_MS = 15_000;
  */
 function extractImageUrls(html: string): string[] {
   const urls: string[] = [];
-  const regex = /(?:src|srcset|data-src)=["'](https?:\/\/[^"'\s]+)/gi;
+  const regex = /(?:src|srcset|data-src)=["']([^"']+)["']/gi;
   let match;
   while ((match = regex.exec(html)) !== null) {
-    urls.push(match[1]);
+    // Split srcset by commas and clean up descriptors like "1024w"
+    const candidates = match[1].split(',').map(s => s.trim().split(' ')[0]);
+    urls.push(...candidates.filter(u => u.startsWith('http')));
   }
   return [...new Set(urls)];
 }
@@ -81,4 +83,33 @@ export async function cacheArticleImages(
   }
 
   return updatedHtml;
+}
+
+/**
+ * Recursively calculates the size of a directory.
+ */
+async function getDirSize(dir: Directory): Promise<number> {
+  let size = 0;
+  const items = dir.list();
+  for (const item of items) {
+    if (item instanceof File) {
+      size += item.size;
+    } else if (item instanceof Directory) {
+      size += await getDirSize(item);
+    }
+  }
+  return size;
+}
+
+export async function getTotalCacheSize(): Promise<number> {
+  const dir = new Directory(Paths.document, 'images');
+  if (!dir.exists) return 0;
+  return getDirSize(dir);
+}
+
+export async function clearAllImageCache(): Promise<void> {
+  const dir = new Directory(Paths.document, 'images');
+  if (dir.exists) {
+    await dir.delete();
+  }
 }

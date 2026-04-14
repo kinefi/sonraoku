@@ -59,6 +59,9 @@ const tr = {
   pageLoadError: 'Sayfa yüklenemedi',
   parseError: 'İçerik ayrıştırılamadı',
   resultReadError: 'Sonuç okunamadı',
+  storageUsage: 'Depolama Kullanımı',
+  clearCache: 'Önbelleği Temizle',
+  cacheCleared: 'Önbellek temizlendi',
 };
 
 const en: typeof tr = {
@@ -115,6 +118,9 @@ const en: typeof tr = {
   pageLoadError: 'Page could not be loaded',
   parseError: 'Content could not be parsed',
   resultReadError: 'Result could not be read',
+  storageUsage: 'Storage Usage',
+  clearCache: 'Clear Cache',
+  cacheCleared: 'Cache cleared',
 };
 
 export const translations: Record<Lang, typeof tr> = { tr, en };

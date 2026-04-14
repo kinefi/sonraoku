@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Highlight } from '../lib/db';
@@ -39,14 +39,21 @@ export default function ReaderView({
     [html, title, defaultColor]
   );
 
+  const injectReaderSettings = useCallback(() => {
+    if (!webViewRef.current) return;
+    const hsJson = JSON.stringify(highlights);
+    webViewRef.current.injectJavaScript(
+      `document.body.style.fontSize='${fontSize}px';` +
+      `var t=document.querySelector('h1.title');if(t)t.style.fontSize='${fontSize + 6}px';` +
+      `window.updateHighlights(${hsJson}); true;`
+    );
+  }, [fontSize, highlights]);
+
   // Inject font size changes without reloading the WebView
   useEffect(() => {
     if (!loaded.current) return;
-    webViewRef.current?.injectJavaScript(
-      `document.body.style.fontSize='${fontSize}px';` +
-        `var t=document.querySelector('h1.title');if(t)t.style.fontSize='${fontSize + 6}px';true;`
-    );
-  }, [fontSize]);
+    injectReaderSettings();
+  }, [fontSize, injectReaderSettings]);
 
   // Handle scrolling to a specific highlight
   useEffect(() => {
@@ -78,10 +85,7 @@ export default function ReaderView({
       showsVerticalScrollIndicator={false}
       onLoadEnd={() => {
         loaded.current = true;
-        webViewRef.current?.injectJavaScript(
-          `document.body.style.fontSize='${fontSize}px';` +
-          `var t=document.querySelector('h1.title');if(t)t.style.fontSize='${fontSize + 6}px';true;`
-        );
+        injectReaderSettings();
       }}
       onMessage={handleMessage}
     />
