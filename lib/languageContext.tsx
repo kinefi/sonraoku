@@ -1,142 +1,50 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const LANG_KEY = 'app_language';
-
-export type Lang = 'tr' | 'en';
-
-export const LANGUAGES: { key: Lang; label: string }[] = [
-  { key: 'tr', label: 'Türkçe' },
-  { key: 'en', label: 'English' },
-];
-
-const tr = {
-  readingList: 'Okunacaklar',
-  tags: 'Etiketler',
-  settings: 'Ayarlar',
-  highlights: 'Vurgular',
-  language: 'Dil',
-  defaultFontSize: 'Varsayılan Yazı Boyutu',
-  defaultHighlightColor: 'Varsayılan Vurgulama Rengi',
-  searchPlaceholder: 'Yazı veya etiket ara...',
-  highlightsTitle: 'Vurgular',
-  noHighlightsYet: 'Henüz vurgu eklenmemiş.',
-  tagsTitle: 'Etiketler',
-  noTagsYet: 'Henüz etiket eklenmemiş.',
-  addTag: 'Ekle',
-  tagPlaceholder: 'Yeni etiket...',
-  filteringByTag: (tag: string) => `"${tag}" etiketi filtreleniyor`,
-  all: 'Tümü',
-  unread: 'Okunmamış',
-  offline: 'Çevrimdışı',
-  archived: 'Arşivlenmiş',
-  noArticles: 'Herhangi bir yazı yok.',
-  noArticlesHint: 'İlk yazınızı eklemek için + tuşuna basın.',
-  loading: 'Yükleniyor…',
-  back: '← Geri',
-  share: 'Paylaş',
-  offlineLabel: 'çevrimdışı',
-  delete: 'Sil',
-  confirmDelete: 'Silmek istediğinize emin misiniz?',
-  archiveAllRead: 'Okunanları Arşivle',
-  confirmArchiveRead: 'Okunmuş tüm yazıları arşivlemek istediğinize emin misiniz?',
-  copy: 'Kopyala',
-  copied: 'Kopyalandı',
-  openInBrowser: 'Tarayıcıda Aç',
-  downloadOffline: 'Çevrimdışı İndir',
-  downloadSuccess: '✓ İndirme Tamamlandı',
-  downloadError: '✗ İndirme Başarısız',
-  couldNotLoad: (title: string) => `"${title}" yüklenemedi.`,
-  noContent: 'Yazı içeriği mevcut değil.',
-  saveArticle: 'Yazı Kaydet',
-  save: 'Kaydet',
-  invalidUrl: 'Geçerli bir URL girin',
-  urlPlaceholder: 'https://ornek.com/makale',
-  minutesAgo: (m: number) => `${m}dk önce`,
-  hoursAgo: (h: number) => `${h}sa önce`,
-  daysAgo: (d: number) => `${d}g önce`,
-  readTime: (m: number) => `${m} dk okuma`,
-};
-
-const en: typeof tr = {
-  readingList: 'Reading List',
-  tags: 'Tags',
-  settings: 'Settings',
-  highlights: 'Highlights',
-  language: 'Language',
-  defaultFontSize: 'Default Font Size',
-  defaultHighlightColor: 'Default Highlight Color',
-  searchPlaceholder: 'Search articles or tags...',
-  highlightsTitle: 'Highlights',
-  noHighlightsYet: 'No highlights added yet.',
-  tagsTitle: 'Tags',
-  noTagsYet: 'No tags added yet.',
-  addTag: 'Add',
-  tagPlaceholder: 'New tag...',
-  filteringByTag: (tag: string) => `Filtering by tag: "${tag}"`,
-  all: 'All',
-  unread: 'Unread',
-  offline: 'Offline',
-  archived: 'Archived',
-  noArticles: 'No articles yet.',
-  noArticlesHint: 'Press + to add your first article.',
-  loading: 'Loading…',
-  back: '← Back',
-  share: 'Share',
-  offlineLabel: 'offline',
-  delete: 'Delete',
-  confirmDelete: 'Are you sure you want to delete this?',
-  archiveAllRead: 'Archive All Read',
-  confirmArchiveRead: 'Are you sure you want to archive all read articles?',
-  copy: 'Copy',
-  copied: 'Copied',
-  openInBrowser: 'Open in Browser',
-  downloadOffline: 'Download Offline',
-  downloadSuccess: '✓ Download Complete',
-  downloadError: '✗ Download Failed',
-  couldNotLoad: (title: string) => `"${title}" could not be loaded.`,
-  noContent: 'Article content unavailable.',
-  saveArticle: 'Save Article',
-  save: 'Save',
-  invalidUrl: 'Enter a valid URL',
-  urlPlaceholder: 'https://example.com/article',
-  minutesAgo: (m: number) => `${m}m ago`,
-  hoursAgo: (h: number) => `${h}h ago`,
-  daysAgo: (d: number) => `${d}d ago`,
-  readTime: (m: number) => `${m} min read`,
-};
-
-export const translations: Record<Lang, typeof tr> = { tr, en };
-export type Translations = typeof tr;
+import { translations, Lang, Translations, LANGUAGES, interpolate } from './translations';
+import { STORAGE_KEYS } from './constants';
 
 type LanguageContextType = {
   lang: Lang;
   setLang: (lang: Lang) => void;
   t: Translations;
+  translate: (key: keyof Translations, params?: Record<string, string | number>) => string;
+  isReady: boolean;
 };
 
 const LanguageContext = createContext<LanguageContextType>({
   lang: 'tr',
   setLang: () => { },
   t: translations.tr,
+  translate: (key) => translations.tr[key],
+  isReady: false,
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>('tr');
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(LANG_KEY)
+    AsyncStorage.getItem(STORAGE_KEYS.LANGUAGE)
       .then((val) => { if (val === 'en' || val === 'tr') setLangState(val); })
-      .catch((e) => { console.error(e) });
+      .catch((e) => { console.error(e) })
+      .finally(() => setIsReady(true));
   }, []);
 
   function setLang(newLang: Lang) {
     setLangState(newLang);
-    AsyncStorage.setItem(LANG_KEY, newLang).catch((e) => { console.error(e) });
+    AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, newLang).catch((e) => { console.error(e) });
   }
 
+  const translate = useCallback(
+    (key: keyof Translations, params?: Record<string, string | number>) => {
+      const str = translations[lang][key];
+      return params ? interpolate(str, params) : str;
+    },
+    [lang]
+  );
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t: translations[lang] }}>
+    <LanguageContext.Provider value={{ lang, setLang, t: translations[lang], translate, isReady }}>
       {children}
     </LanguageContext.Provider>
   );

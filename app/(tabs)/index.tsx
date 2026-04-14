@@ -22,6 +22,8 @@ import { sharedStyles } from '../../lib/theme';
 import SwipeableArticleCard from '../../components/SwipeableArticleCard';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 import { useLanguage } from '../../lib/languageContext';
+import FabGroup from '../../components/FabGroup';
+import SearchBar from '../../components/SearchBar';
 
 type Filter = 'all' | 'unread' | 'offline' | 'archived';
 
@@ -54,6 +56,7 @@ export default function Index() {
   });
 
   const filtered = data?.pages.flat() ?? [];
+  const hasReadArticles = filtered.some((a) => a.is_read === 1);
 
   const handleArchiveAllRead = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -78,25 +81,12 @@ export default function Index() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t.searchPlaceholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            clearButtonMode="while-editing"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t.searchPlaceholder}
+        onClear={() => setSearchQuery('')}
+      />
 
       {/* Tag filter info */}
       {tag && (
@@ -147,23 +137,23 @@ export default function Index() {
         }
       />
 
-      {/* Archive All Read FAB (Left) */}
-      {filter !== 'archived' && (
-        <TouchableOpacity 
-          style={styles.fabLeft} 
-          onPress={handleArchiveAllRead}
-        >
-          <Ionicons name="archive-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-      )}
-
       {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setShowSheet(true);
-      }}>
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
+      <FabGroup
+        actions={[
+          {
+            icon: 'archive-outline',
+            onPress: handleArchiveAllRead,
+            visible: filter !== 'archived' && hasReadArticles,
+            haptic: Haptics.ImpactFeedbackStyle.Medium,
+          },
+          {
+            icon: 'add',
+            iconSize: 30,
+            onPress: () => setShowSheet(true),
+            haptic: Haptics.ImpactFeedbackStyle.Light,
+          },
+        ]}
+      />
 
       <SaveUrlSheet visible={showSheet} onClose={() => setShowSheet(false)} />
     </SafeAreaView>
@@ -233,7 +223,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.white,
   },
   list: {
     paddingTop: 8,
@@ -257,42 +247,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.placeholder,
     marginTop: 4,
-  },
-  fabLeft: {
-    position: 'absolute',
-    left: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  fabIcon: {
-    fontSize: 28,
-    color: '#fff',
-    lineHeight: 32,
   },
 });

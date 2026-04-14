@@ -1,0 +1,40 @@
+name: "Android"
+
+on:
+  workflow_dispatch:
+
+# https://github.com/expo/expo-github-action#publish-on-any-push-to-main
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build package
+        run: pnpm build:android --local
+      - uses: WyriHaximus/github-action-get-previous-tag@v1
+        id: currenttag
+      - name: Rename AAB
+        run: mv build-*.aab sonraoku-${{ steps.currenttag.outputs.tag }}.aab
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: sonraoku-${{ steps.currenttag.outputs.tag }}.aab
+          tag_name: ${{ steps.currenttag.outputs.tag }}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -10,12 +10,17 @@ import { getAllHighlights, deleteHighlight, HighlightWithArticle } from '../../l
 import { queryClient } from '../../lib/queryClient';
 import { useLanguage } from '../../lib/languageContext';
 import { colors, sharedStyles } from '../../lib/theme';
+import FabGroup from '../../components/FabGroup';
+import SaveUrlSheet from '../../components/SaveUrlSheet';
+import SearchBar from '../../components/SearchBar';
 
 export default function HighlightsScreen() {
   const { t } = useLanguage();
+  const [showSheet, setShowSheet] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { data: highlights = [] } = useQuery({
-    queryKey: ['highlights', 'all'],
-    queryFn: getAllHighlights,
+    queryKey: ['highlights', 'all', searchQuery],
+    queryFn: () => getAllHighlights(searchQuery),
   });
 
   const handleDelete = (id: string) => {
@@ -55,6 +60,12 @@ export default function HighlightsScreen() {
       <View style={sharedStyles.header}>
         <Text style={sharedStyles.headerTitle}>{t.highlightsTitle}</Text>
       </View>
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t.searchPlaceholder}
+        onClear={() => setSearchQuery('')}
+      />
       <FlatList
         data={highlights}
         keyExtractor={(item) => item.id}
@@ -103,6 +114,19 @@ export default function HighlightsScreen() {
         }
         contentContainerStyle={highlights.length === 0 && { flex: 1 }}
       />
+
+      <FabGroup
+        actions={[
+          {
+            icon: 'add',
+            iconSize: 30,
+            onPress: () => setShowSheet(true),
+            haptic: Haptics.ImpactFeedbackStyle.Light,
+          },
+        ]}
+      />
+
+      <SaveUrlSheet visible={showSheet} onClose={() => setShowSheet(false)} />
     </SafeAreaView>
   );
 }

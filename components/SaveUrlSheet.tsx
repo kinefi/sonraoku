@@ -14,7 +14,8 @@ import * as Crypto from 'expo-crypto';
 import { colors } from '../lib/theme';
 import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
-import { fetchRawHtml, buildParserHtml } from '../lib/utils';
+import { fetchRawHtml } from '../lib/utils';
+import { buildParserHtml } from '../lib/htmlBuilder';
 import { useParseQueue } from '../lib/parseQueue';
 import { useLanguage } from '../lib/languageContext';
 

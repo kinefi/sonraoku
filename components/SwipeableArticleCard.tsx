@@ -7,6 +7,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { queryClient } from '../lib/queryClient';
 import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '../lib/db';
 import ArticleCard from './ArticleCard';
+import { useLanguage } from '../lib/languageContext';
 
 type Props = {
   article: Article;
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function SwipeableArticleCard({ article, onPress }: Props) {
+  const { t } = useLanguage();
   const swipeableRef = useRef<Swipeable>(null);
 
   function invalidate() {
@@ -41,22 +43,22 @@ export default function SwipeableArticleCard({ article, onPress }: Props) {
   }
 
   function renderLeftActions() {
-    const label = article.is_read ? 'Okunmadı' : 'Okundu';
+    const label = article.is_read ? t.markAsUnread : t.markAsRead;
     const icon = article.is_read ? 'mail-unread-outline' : 'checkmark-circle-outline';
     return (
       <View style={[styles.action, styles.readAction]}>
-        <Ionicons name={icon} size={22} color="#fff" />
+        <Ionicons name={icon} size={22} color={colors.white} />
         <Text style={styles.actionText}>{label}</Text>
       </View>
     );
   }
 
   function renderRightActions() {
-    const label = article.is_archived ? 'Arşivden Çıkar' : 'Arşivle';
+    const label = article.is_archived ? t.unarchive : t.archive;
     const icon = article.is_archived ? 'arrow-undo-outline' : 'archive-outline';
     return (
       <View style={[styles.action, styles.archiveAction]}>
-        <Ionicons name={icon} size={22} color="#fff" />
+        <Ionicons name={icon} size={22} color={colors.white} />
         <Text style={styles.actionText}>{label}</Text>
       </View>
     );
@@ -102,7 +104,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
   },
   actionText: {
-    color: '#fff',
+    color: colors.white,
     fontSize: 11,
     fontWeight: '600',
   },

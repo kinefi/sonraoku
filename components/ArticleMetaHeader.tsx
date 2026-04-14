@@ -3,14 +3,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Article } from '../lib/db';
 import { colors } from '../lib/theme';
 import { getDomain, getReadTime } from '../lib/utils';
-import { useLanguage, LANGUAGES } from '../lib/languageContext';
+import { useLanguage } from '../lib/languageContext';
+import { LANGUAGES } from '../lib/translations';
 
 type Props = {
   article: Article;
 };
 
 export default function ArticleMetaHeader({ article }: Props) {
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
   
   const langLabel = article.lang
     ? LANGUAGES.find((l) => article.lang?.toLowerCase().startsWith(l.key))?.label ||
@@ -24,7 +25,7 @@ export default function ArticleMetaHeader({ article }: Props) {
         {article.html_content && (
           <Text style={styles.readTime}>
             {langLabel && `${langLabel} • `}
-            {t.readTime(getReadTime(article.html_content))}
+            {translate('readTime', { m: getReadTime(article.html_content) })}
           </Text>
         )}
       </View>

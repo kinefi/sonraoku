@@ -52,4 +52,13 @@ export const sharedStyles = StyleSheet.create({
     fontSize: 12,
     color: colors.textFaint,
   },
+  floating: {
+    elevation: 6,
+    shadowColor: colors.black,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
 });

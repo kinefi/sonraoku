@@ -6,7 +6,6 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useArticleSpeech, useArticleSettings, useArticleActions, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/hooks';
@@ -15,7 +14,7 @@ import {
   getArticleById, markArticleRead,
   getHighlightsByArticle, getTagsForArticle,
 } from '../../lib/db';
-import { colors } from '../../lib/theme';
+import { colors, sharedStyles } from '../../lib/theme';
 import ReaderView from '../../components/ReaderView';
 import { useLanguage } from '../../lib/languageContext';
 import ArticleMetaHeader from '../../components/ArticleMetaHeader';
@@ -212,13 +211,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    elevation: 6,
-    shadowColor: colors.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    ...sharedStyles.floating,
   },
   fabActionBtn: {
     width: 48,

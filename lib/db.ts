@@ -221,13 +221,20 @@ export function deleteHighlight(id: string): void {
 
 export type HighlightWithArticle = Highlight & { article_title: string | null };
 
-export function getAllHighlights(): HighlightWithArticle[] {
-  return db.getAllSync<HighlightWithArticle>(
-    `SELECT h.*, a.title as article_title 
-     FROM highlights h 
-     JOIN articles a ON h.article_id = a.id 
-     ORDER BY h.created_at DESC`
-  );
+export function getAllHighlights(searchQuery?: string): HighlightWithArticle[] {
+  let query = `SELECT h.*, a.title as article_title 
+               FROM highlights h 
+               JOIN articles a ON h.article_id = a.id`;
+  const params: string[] = [];
+
+  if (searchQuery?.trim()) {
+    query += ` WHERE h.selected_text LIKE ? OR a.title LIKE ?`;
+    const q = `%${searchQuery.trim()}%`;
+    params.push(q, q);
+  }
+
+  query += ` ORDER BY h.created_at DESC`;
+  return db.getAllSync<HighlightWithArticle>(query, params);
 }
 
 
@@ -240,8 +247,17 @@ export function getTagsForArticle(articleId: string): string[] {
   ).map(r => r.name);
 }
 
-export function getAllTags(): string[] {
-  return db.getAllSync<{ name: string }>('SELECT name FROM tags ORDER BY name ASC').map(r => r.name);
+export function getAllTags(searchQuery?: string): string[] {
+  let query = 'SELECT name FROM tags';
+  const params: string[] = [];
+
+  if (searchQuery?.trim()) {
+    query += ' WHERE name LIKE ?';
+    params.push(`%${searchQuery.trim()}%`);
+  }
+
+  query += ' ORDER BY name ASC';
+  return db.getAllSync<{ name: string }>(query, params).map(r => r.name);
 }
 
 export function addTagToArticle(articleId: string, tagName: string): void {
