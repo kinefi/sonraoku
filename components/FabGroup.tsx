@@ -1,8 +1,9 @@
 import React, { ReactNode } from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, sharedStyles } from '../lib/theme';
+import { sharedStyles, borderRadius, typography } from '../lib/theme';
+import { useTheme } from '../lib/themeContext';
+import IconButton from './IconButton';
 
 export type FabAction = {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -15,6 +16,7 @@ export type FabAction = {
   iconSize?: number;
   haptic?: Haptics.ImpactFeedbackStyle;
   disabled?: boolean;
+  variant?: 'ghost' | 'filled' | 'outlined';
   style?: ViewStyle;
   useFloatingStyle?: boolean;
 };
@@ -26,17 +28,28 @@ type Props = {
 };
 
 export default function FabGroup({ actions, containerStyle, disableAbsolutePositioning }: Props) {
+  const { colors } = useTheme();
   const visibleActions = actions.filter((a) => a.visible !== false);
 
   if (visibleActions.length === 0) return null;
 
   return (
-    <View style={[!disableAbsolutePositioning && styles.absoluteContainer, styles.container, containerStyle]}>
+    <View style={[!disableAbsolutePositioning && styles.absoluteContainer, styles.container, containerStyle, { shadowColor: colors.black }]}>
       {visibleActions.map((action, index) => (
-        <TouchableOpacity
+        <IconButton
           key={index}
-          activeOpacity={0.7}
+          name={action.icon}
+          label={action.label}
+          size={action.iconSize || 24}
+          variant={action.variant}
+          color={action.iconColor || (action.backgroundColor === 'transparent' ? colors.primary : colors.white)}
           disabled={action.disabled}
+          onPress={() => {
+            if (action.haptic) {
+              Haptics.impactAsync(action.haptic);
+            }
+            action.onPress();
+          }}
           style={[
             styles.base,
             action.useFloatingStyle !== false ? styles.fabBase : null,
@@ -44,27 +57,9 @@ export default function FabGroup({ actions, containerStyle, disableAbsolutePosit
             action.style,
             action.disabled ? styles.disabled : null,
           ]}
-          onPress={() => {
-            if (action.haptic) {
-              Haptics.impactAsync(action.haptic);
-            }
-            action.onPress();
-          }}
         >
-          {action.renderContent ? (
-            action.renderContent()
-          ) : action.icon ? (
-            <Ionicons
-              name={action.icon}
-              size={action.iconSize || 24}
-              color={action.iconColor || colors.white}
-            />
-          ) : action.label ? (
-            <Text style={[styles.label, { color: action.iconColor || colors.white }]}>
-              {action.label}
-            </Text>
-          ) : null}
-        </TouchableOpacity>
+          {action.renderContent?.()}
+        </IconButton>
       ))}
     </View>
   );
@@ -87,7 +82,7 @@ const styles = StyleSheet.create({
   fabBase: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: borderRadius.pill,
     ...sharedStyles.floating,
   },
   disabled: {
@@ -95,6 +90,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: typography.weights.bold,
   },
 });

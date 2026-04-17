@@ -6,11 +6,27 @@ export const LANGUAGES: { key: Lang; label: string }[] = [
 ];
 
 const tr = {
+  appName: 'Sonra Oku',
   readingList: 'Okunacaklar',
   tags: 'Etiketler',
   settings: 'Ayarlar',
   highlights: 'Vurgular',
   language: 'Dil',
+  theme: 'Görünüm',
+  system: 'Sistem',
+  light: 'Açık',
+  dark: 'Koyu',
+  sepia: 'Sepya',
+  highContrast: 'Yüksek Kontrast',
+  fontFamily: 'Yazı Tipi',
+  serif: 'Serif (Tırnaklı)',
+  sansSerif: 'Sans-serif (Düz)',
+  batchActions: 'Toplu İşlemler',
+  select: 'Seç',
+  preview: 'Önizleme',
+  cancel: 'İptal',
+  archiveSelected: 'Seçilenleri Arşivle',
+  deleteSelected: 'Seçilenleri Sil',
   defaultFontSize: 'Varsayılan Yazı Boyutu',
   defaultHighlightColor: 'Varsayılan Vurgulama Rengi',
   searchPlaceholder: 'Yazı veya etiket ara...',
@@ -62,14 +78,41 @@ const tr = {
   storageUsage: 'Depolama Kullanımı',
   clearCache: 'Önbelleği Temizle',
   cacheCleared: 'Önbellek temizlendi',
+  about: 'Hakkında',
+  version: 'Versiyon',
+  readme: 'README',
+  appDescription: 'Okuma deneyiminizi güzelleştiren çevrimdışı makale okuyucu.',
+  github: 'GitHub Kaynak Kodu',
+  swipeHint: 'Okundu işaretlemek için sola, arşivlemek için sağa kaydırın.',
+  resetToDefaults: 'Varsayılanlara Sıfırla',
+  lastSynced: 'Son Senkronizasyon',
+  notAvailablePhase3: 'Faz 3\'te mevcut olacak',
+  minFontSizeReached: 'Minimum yazı boyutu',
+  maxFontSizeReached: 'Maksimum yazı boyutu',
 };
 
 const en: typeof tr = {
+  appName: 'Sonra Oku',
   readingList: 'Reading List',
   tags: 'Tags',
   settings: 'Settings',
   highlights: 'Highlights',
   language: 'Language',
+  theme: 'Appearance',
+  system: 'System',
+  light: 'Light',
+  dark: 'Dark',
+  sepia: 'Sepia',
+  highContrast: 'High Contrast',
+  fontFamily: 'Font Family',
+  serif: 'Serif',
+  sansSerif: 'Sans-serif',
+  batchActions: 'Batch Actions',
+  select: 'Select',
+  preview: 'Preview',
+  cancel: 'Cancel',
+  archiveSelected: 'Archive Selected',
+  deleteSelected: 'Delete Selected',
   defaultFontSize: 'Default Font Size',
   defaultHighlightColor: 'Default Highlight Color',
   searchPlaceholder: 'Search articles or tags...',
@@ -121,6 +164,17 @@ const en: typeof tr = {
   storageUsage: 'Storage Usage',
   clearCache: 'Clear Cache',
   cacheCleared: 'Cache cleared',
+  about: 'About',
+  version: 'Version',
+  readme: 'README',
+  appDescription: 'Offline article reader designed for a better reading experience.',
+  github: 'GitHub Source Code',
+  swipeHint: 'Swipe left to mark as read, right to archive.',
+  resetToDefaults: 'Reset to Defaults',
+  lastSynced: 'Last Synced',
+  notAvailablePhase3: 'Available in Phase 3',
+  minFontSizeReached: 'Minimum font size',
+  maxFontSizeReached: 'Maximum font size',
 };
 
 export const translations: Record<Lang, typeof tr> = { tr, en };
@@ -128,7 +182,7 @@ export type Translations = typeof tr;
 
 /**
  * Simple helper to replace {key} in strings.
- * Usage: t(translations.en.readTime, { m: 5 })
+ * Usage: interpolate(t.readTime, { m: 5 })
  */
 export function interpolate(str: string, params: Record<string, string | number>): string {
   return str.replace(/{(\w+)}/g, (_, key) => params[key]?.toString() ?? `{${key}}`);

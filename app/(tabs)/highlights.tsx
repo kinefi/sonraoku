@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { getAllHighlights, deleteHighlight, HighlightWithArticle } from '../../lib/db';
 import { queryClient } from '../../lib/queryClient';
 import { useLanguage } from '../../lib/languageContext';
-import { colors, sharedStyles } from '../../lib/theme';
+import { sharedStyles } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 import FabGroup from '../../components/FabGroup';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 import SearchBar from '../../components/SearchBar';
+import IconButton from '../../components/IconButton';
 
 export default function HighlightsScreen() {
   const { t } = useLanguage();
@@ -55,10 +56,70 @@ export default function HighlightsScreen() {
     await Clipboard.setStringAsync(text);
   };
 
+  const { colors, isDark } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    itemRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.white,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    itemContent: {
+      flex: 1,
+      paddingLeft: 20,
+      paddingVertical: 16,
+    },
+    actions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingRight: 10,
+    },
+    actionBtn: {
+      padding: 10,
+    },
+    articleTitle: {
+      fontSize: 11,
+      color: colors.primary,
+      fontWeight: '700',
+      marginBottom: 6,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    text: {
+      fontSize: 15,
+      color: colors.textPrimary,
+      lineHeight: 22,
+      marginBottom: 8,
+    },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    date: {
+      fontSize: 11,
+      color: colors.textFaint,
+    },
+    empty: {
+      flex: 1,
+      paddingTop: 100,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 15,
+    },
+  }), [colors]);
+
   return (
-    <SafeAreaView style={sharedStyles.container}>
-      <View style={sharedStyles.header}>
-        <Text style={sharedStyles.headerTitle}>{t.highlightsTitle}</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t.highlightsTitle}</Text>
       </View>
       <SearchBar
         value={searchQuery}
@@ -87,28 +148,38 @@ export default function HighlightsScreen() {
                 {item.selected_text}
               </Text>
               <View style={styles.footer}>
-                <Ionicons name="time-outline" size={12} color={colors.textFaint} />
+                <IconButton name="time-outline" size={12} color={colors.textFaint} passive />
                 <Text style={styles.date}>
                   {new Date(item.created_at).toLocaleDateString()}
                 </Text>
               </View>
             </TouchableOpacity>
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleCopy(item.selected_text)}>
-                <Ionicons name="copy-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(item)}>
-                <Ionicons name="share-social-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id)}>
-                <Ionicons name="trash-outline" size={18} color={colors.error} />
-              </TouchableOpacity>
+              <IconButton
+                name="copy-outline"
+                size={18}
+                onPress={() => handleCopy(item.selected_text)}
+                accessibilityLabel={t.copy}
+              />
+              <IconButton
+                name="share-social-outline"
+                size={18}
+                onPress={() => handleShare(item)}
+                accessibilityLabel={t.share}
+              />
+              <IconButton
+                name="trash-outline"
+                size={18}
+                color={colors.error}
+                onPress={() => handleDelete(item.id)}
+                accessibilityLabel={t.delete}
+              />
             </View>
           </View>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="bookmarks-outline" size={48} color={colors.borderMid} />
+            <IconButton name="bookmarks-outline" size={48} color={colors.borderMid} passive />
             <Text style={styles.emptyText}>{t.noHighlightsYet}</Text>
           </View>
         }
@@ -130,59 +201,3 @@ export default function HighlightsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  itemRow: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  itemContent: {
-    flex: 1,
-    paddingLeft: 20,
-    paddingVertical: 16,
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 10,
-  },
-  actionBtn: {
-    padding: 10,
-  },
-  articleTitle: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '700',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  text: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  date: {
-    fontSize: 11,
-    color: colors.textFaint,
-  },
-  empty: {
-    flex: 1,
-    paddingTop: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 15,
-  },
-});

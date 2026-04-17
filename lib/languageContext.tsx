@@ -7,7 +7,6 @@ type LanguageContextType = {
   lang: Lang;
   setLang: (lang: Lang) => void;
   t: Translations;
-  translate: (key: keyof Translations, params?: Record<string, string | number>) => string;
   isReady: boolean;
 };
 
@@ -15,7 +14,6 @@ const LanguageContext = createContext<LanguageContextType>({
   lang: 'tr',
   setLang: () => { },
   t: translations.tr,
-  translate: (key) => translations.tr[key],
   isReady: false,
 });
 
@@ -35,16 +33,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEYS.LANGUAGE, newLang).catch((e) => { console.error(e) });
   }
 
-  const translate = useCallback(
-    (key: keyof Translations, params?: Record<string, string | number>) => {
-      const str = translations[lang][key];
-      return params ? interpolate(str, params) : str;
-    },
-    [lang]
-  );
-
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t: translations[lang], translate, isReady }}>
+    <LanguageContext.Provider value={{ lang, setLang, t: translations[lang], isReady }}>
       {children}
     </LanguageContext.Provider>
   );

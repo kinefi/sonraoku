@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/theme';
+import { sharedStyles, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/themeContext';
 import { useLanguage } from '../lib/languageContext';
+import IconButton from './IconButton';
 
 type Props = {
   visible: boolean;
@@ -31,6 +32,55 @@ export default function TagsModal({
   onRemoveTag,
 }: Props) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalContent: {
+      height: '60%',
+      backgroundColor: colors.white,
+      borderTopLeftRadius: borderRadius.xxl,
+      borderTopRightRadius: borderRadius.xxl,
+      paddingTop: spacing.lg,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+    tagInputRow: { flexDirection: 'row', padding: spacing.xl, gap: spacing.lg },
+    tagInput: {
+      flex: 1,
+      height: 44,
+      backgroundColor: colors.bgMuted,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.md + 3,
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    addTagBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.xl,
+    },
+    tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl, gap: spacing.sm },
+    tagBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.bgMuted,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm - 2,
+      borderRadius: borderRadius.xxl,
+      gap: spacing.sm - 2,
+    },
+    tagBadgeText: { fontSize: 14, color: colors.textPrimary },
+  }), [colors]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -38,9 +88,13 @@ export default function TagsModal({
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{t.tagsTitle}</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+          <IconButton
+            name="close"
+            size={24}
+            color={colors.textPrimary}
+            onPress={onClose}
+            accessibilityLabel={t.back}
+          />
         </View>
 
         <View style={styles.tagInputRow}>
@@ -49,21 +103,29 @@ export default function TagsModal({
             placeholder={t.tagPlaceholder}
             value={newTag}
             onChangeText={setNewTag}
+            placeholderTextColor={colors.placeholder}
             onSubmitEditing={onAddTag}
             autoCapitalize="none"
           />
-          <TouchableOpacity style={styles.addTagBtn} onPress={onAddTag}>
-            <Text style={styles.addTagBtnText}>{t.addTag}</Text>
-          </TouchableOpacity>
+          <IconButton
+            label={t.addTag}
+            variant="filled"
+            onPress={onAddTag}
+            style={styles.addTagBtn}
+          />
         </View>
 
         <View style={styles.tagsContainer}>
           {tags.map((tag) => (
             <View key={tag} style={styles.tagBadge}>
               <Text style={styles.tagBadgeText}>{tag}</Text>
-              <TouchableOpacity onPress={() => onRemoveTag(tag)}>
-                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
+              <IconButton
+                name="close-circle"
+                size={16}
+                color={colors.textSecondary}
+                onPress={() => onRemoveTag(tag)}
+                accessibilityLabel={t.delete}
+              />
             </View>
           ))}
         </View>
@@ -71,51 +133,3 @@ export default function TagsModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: {
-    height: '60%',
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-  tagInputRow: { flexDirection: 'row', padding: 20, gap: 10 },
-  tagInput: {
-    flex: 1,
-    height: 44,
-    backgroundColor: colors.bgMuted,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    fontSize: 15,
-  },
-  addTagBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 20,
-    justifyContent: 'center',
-  },
-  addTagBtnText: { color: colors.white, fontWeight: '600' },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 8 },
-  tagBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bgMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  tagBadgeText: { fontSize: 14, color: colors.textPrimary },
-});

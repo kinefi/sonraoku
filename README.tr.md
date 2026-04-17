@@ -11,6 +11,7 @@ Kişisel bir "sonra oku" Android uygulaması. Makale URL'lerini kaydedin, tamame
 - Makale ayrıştırma Mozilla Readability ile yerel olarak çalışır (harici API yok)
 - Cihaz TTS ile sesli okuma, otomatik dil algılama
 - Kaydırma ile arşivleme veya okundu/okunmadı işaretleme
+- Yüksek Kontrast ve Sepya temalarıyla erişilebilirlik öncelikli tasarım
 - Oturumlar arasında saklanan ayarlanabilir font boyutu
 - Türkçe / İngilizce arayüz
 

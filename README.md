@@ -11,6 +11,7 @@ A personal "read later" app for Android. Save article URLs, read them fully offl
 - Article parsing runs locally via Mozilla Readability (no external API)
 - Read-aloud via device TTS with automatic language detection
 - Swipe to archive or mark as read
+- Accessibility-first design with High Contrast and Sepia themes
 - Adjustable font size (persisted across sessions)
 - Turkish / English UI
 

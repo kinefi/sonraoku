@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
@@ -9,6 +9,7 @@ import { initDb, updateArticleContent } from '../lib/db';
 import { cacheArticleImages } from '../lib/imageCache';
 import ArticleParser, { ParseResult } from '../components/ArticleParser';
 import { LanguageProvider } from '../lib/languageContext';
+import { ThemeProvider } from '../lib/themeContext';
 
 const MAX_PARSE_RETRIES = 2;
 
@@ -16,37 +17,50 @@ export default function RootLayout() {
   const [parseQueue, setParseQueue] = useState<ParseQueueItem[]>([]);
 
   useEffect(() => {
-    try {
-      initDb();
-    } catch (e) {
-      console.error('Database initialization failed:', e);
-    }
+    const setup = async () => {
+      try {
+        await initDb();
+      } catch (e) {
+        console.error('Database initialization failed:', e);
+      }
+    };
+    setup();
   }, []);
 
   const addToQueue = useCallback((item: ParseQueueItem) => {
     setParseQueue((prev) => [...prev, item]);
   }, []);
 
-  const handleParsed = useCallback(async (id: string, result: ParseResult) => {
-    let cachedHtml = result.content;
-    try {
-      cachedHtml = await cacheArticleImages(result.content, id);
-    } catch (e) {
-      console.warn('Image caching failed, using original HTML:', e);
-    }
-    updateArticleContent(id, result.title, result.excerpt, cachedHtml, result.lang);
-    queryClient.invalidateQueries({ queryKey: ['articles'] });
-    queryClient.invalidateQueries({ queryKey: ['article', id] });
-    setParseQueue((prev) => prev.slice(1));
+  const handleParsed = useCallback((id: string, result: ParseResult) => {
+    // Ensure we are still processing the correct item
+    setParseQueue((prev) => {
+      if (prev[0]?.id !== id) return prev;
+      
+      (async () => {
+        let cachedHtml = result.content;
+        try {
+          cachedHtml = await cacheArticleImages(result.content, id);
+        } catch (e) {
+          console.warn('Image caching failed, using original HTML:', e);
+        }
+        await updateArticleContent(id, result.title, result.excerpt, cachedHtml, result.lang);
+        queryClient.invalidateQueries({ queryKey: ['articles'] });
+        queryClient.invalidateQueries({ queryKey: ['article', id] });
+      })();
+
+      return prev.slice(1);
+    });
   }, []);
 
   const handleParseError = useCallback((id: string, error?: string) => {
     console.warn('Parse failed for article', id, error ? `- ${error}` : '');
     setParseQueue((prev) => {
-      const current = prev[0];
-      const retries = current?.retries ?? 0;
+      const activeJob = prev[0];
+      if (activeJob?.id !== id) return prev;
+
+      const retries = activeJob.retries ?? 0;
       if (retries < MAX_PARSE_RETRIES) {
-        return [...prev.slice(1), { ...current, retries: retries + 1 }];
+        return [...prev.slice(1), { ...activeJob, retries: retries + 1 }];
       }
       return prev.slice(1);
     });
@@ -54,25 +68,30 @@ export default function RootLayout() {
 
   const current = parseQueue[0];
 
+  // Memoize context to prevent full app re-renders when layout re-renders
+  const queueContextValue = useMemo(() => ({ addToQueue }), [addToQueue]);
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
-        <LanguageProvider>
-          <ParseQueueContext.Provider value={{ addToQueue }}>
-            {current && (
-              <ArticleParser
-                key={current.id}
-                html={current.html}
-                onParsed={(result) => handleParsed(current.id, result)}
-                onError={(error) => handleParseError(current.id, error)}
-              />
-            )}
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
-            </Stack>
-          </ParseQueueContext.Provider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <ParseQueueContext.Provider value={queueContextValue}>
+              {current && (
+                <ArticleParser
+                  key={current.id}
+                  html={current.html}
+                  onParsed={(result) => handleParsed(current.id, result)}
+                  onError={(error) => handleParseError(current.id, error)}
+                />
+              )}
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
+              </Stack>
+            </ParseQueueContext.Provider>
+          </LanguageProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
   );

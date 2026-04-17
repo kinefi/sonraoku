@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/theme';
+import { View, TextInput, StyleSheet } from 'react-native';
+import { useTheme } from '../lib/themeContext';
+import { useLanguage } from '../lib/languageContext';
+import IconButton from './IconButton';
 
 type Props = {
   value: string;
@@ -11,13 +12,16 @@ type Props = {
 };
 
 export default function SearchBar({ value, onChangeText, placeholder, onClear }: Props) {
+  const { colors } = useTheme();
+  const { t } = useLanguage();
   return (
-    <View style={styles.searchContainer}>
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={18} color={colors.textMuted} style={styles.searchIcon} />
+    <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
+      <View style={[styles.searchBar, { backgroundColor: colors.bgMuted }]}>
+        <IconButton name="search" size={18} color={colors.textMuted} style={styles.searchIcon} passive />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.textPrimary }]}
           placeholder={placeholder}
+          placeholderTextColor={colors.placeholder}
           value={value}
           onChangeText={onChangeText}
           clearButtonMode="while-editing"
@@ -25,9 +29,13 @@ export default function SearchBar({ value, onChangeText, placeholder, onClear }:
           autoCorrect={false}
         />
         {value.length > 0 && onClear && (
-          <TouchableOpacity onPress={onClear}>
-            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          <IconButton
+            name="close-circle"
+            size={18}
+            color={colors.textMuted}
+            onPress={onClear}
+            accessibilityLabel={t.cancel}
+          />
         )}
       </View>
     </View>
@@ -38,12 +46,10 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    backgroundColor: colors.white,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgMuted,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 40,
@@ -52,6 +58,5 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: colors.textPrimary,
   },
 });

@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { getAllTags } from '../../lib/db';
 import { useLanguage } from '../../lib/languageContext';
-import { colors, sharedStyles } from '../../lib/theme';
+import { sharedStyles } from '../../lib/theme';
+import { useTheme } from '../../lib/themeContext';
 import FabGroup from '../../components/FabGroup';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 import SearchBar from '../../components/SearchBar';
+import IconButton from '../../components/IconButton';
 
 export default function TagsScreen() {
   const { t } = useLanguage();
@@ -21,10 +22,44 @@ export default function TagsScreen() {
     queryFn: () => getAllTags(searchQuery),
   });
 
+  const { colors, isDark } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    tagItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      backgroundColor: colors.white,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      gap: 12,
+    },
+    tagText: {
+      flex: 1,
+      fontSize: 16,
+      color: colors.textPrimary,
+      textTransform: 'capitalize',
+    },
+    empty: {
+      flex: 1,
+      paddingTop: 100,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 15,
+    },
+  }), [colors]);
+
   return (
-    <SafeAreaView style={sharedStyles.container}>
-      <View style={sharedStyles.header}>
-        <Text style={sharedStyles.headerTitle}>{t.tagsTitle}</Text>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t.tagsTitle}</Text>
       </View>
       <SearchBar
         value={searchQuery}
@@ -40,14 +75,14 @@ export default function TagsScreen() {
             style={styles.tagItem}
             onPress={() => router.push({ pathname: '/', params: { tag: item } })}
           >
-            <Ionicons name="pricetag-outline" size={20} color={colors.primary} />
+            <IconButton name="pricetag-outline" size={20} color={colors.primary} passive />
             <Text style={styles.tagText}>{item}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+            <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
           </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="pricetags-outline" size={48} color={colors.borderMid} />
+            <IconButton name="pricetags-outline" size={48} color={colors.borderMid} passive />
             <Text style={styles.emptyText}>{t.noTagsYet}</Text>
           </View>
         }
@@ -69,33 +104,3 @@ export default function TagsScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  tagItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    gap: 12,
-  },
-  tagText: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-    textTransform: 'capitalize',
-  },
-  empty: {
-    flex: 1,
-    paddingTop: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 15,
-  },
-});

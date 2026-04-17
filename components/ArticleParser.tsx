@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLanguage } from '../lib/languageContext';
@@ -23,8 +23,12 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
   const { t } = useLanguage();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isFinished = useRef(false);
+  
   const onErrorRef = useRef(onError);
+  const onParsedRef = useRef(onParsed);
+
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
+  useEffect(() => { onParsedRef.current = onParsed; }, [onParsed]);
 
   const clearTimer = () => {
     if (timeoutRef.current) {
@@ -49,16 +53,20 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
     return clearTimer;
   }, []);
 
+  const source = useMemo(() => ({ html }), [html]);
+
   return (
     <WebView
       style={styles.hidden}
-      source={{ html }}
+      source={source}
       javaScriptEnabled={true}
       originWhitelist={['*']}
-      domStorageEnabled={true}
-      allowFileAccess={true}
-      allowUniversalAccessFromFileURLs={true}
-      mixedContentMode="always"
+      domStorageEnabled={false} // Readability on static HTML doesn't need storage
+      cacheEnabled={false} // Critical for high-volume parsing to avoid disk/memory cache growth
+      incognito={true} // Ensures each parse starts with a clean state
+      allowFileAccess={false} // Not needed for string source
+      allowUniversalAccessFromFileURLs={false} // Security hardening
+      mixedContentMode="never" // Security hardening
       onLoadEnd={() => {
         if (isFinished.current) return;
         // Page loaded — now budget only for Readability execution
@@ -77,7 +85,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
           const data = JSON.parse(event.nativeEvent.data);
           if (data.success) {
             isFinished.current = true;
-            onParsed({
+            onParsedRef.current({
               title: data.title ?? '',
               content: data.content ?? '',
               excerpt: data.excerpt ?? '',

@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo } from 'react';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, sharedStyles } from '../lib/theme';
-import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/hooks';
-import FabGroup, { FabAction } from './FabGroup';
+import { sharedStyles, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/themeContext';
+import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/themeContext';
+import IconButton from './IconButton';
+import SegmentedControl from './SegmentedControl';
+import { useLanguage } from '../lib/languageContext';
 
 type Props = {
   onBack: () => void;
@@ -33,139 +35,127 @@ export default function ReaderFabPill({
   onRefresh,
   hasContent,
 }: Props) {
-  const actions: FabAction[] = [
-    {
-      icon: 'arrow-back',
-      onPress: onBack,
-      iconColor: colors.primary,
-      backgroundColor: 'transparent',
-      useFloatingStyle: false,
-      style: styles.fabActionBtn,
-    },
-  ];
+  const { colors, themeMode, setThemeMode } = useTheme();
+  const { t } = useLanguage();
 
-  if (hasContent) {
-    actions.push(
-      {
-        label: 'A−',
-        onPress: () => {
-          Haptics.selectionAsync();
-          onFontSizeChange(-2);
-        },
-        disabled: fontSize <= FONT_SIZE_MIN,
-        iconColor: colors.primary,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
+  const styles = useMemo(() => {
+    const baseStyles = sharedStyles(colors);
+    return StyleSheet.create({
+      fabActionRow: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: spacing.xxl,
+        alignItems: 'center',
       },
-      {
-        label: 'A+',
-        onPress: () => {
-          Haptics.selectionAsync();
-          onFontSizeChange(2);
-        },
-        disabled: fontSize >= FONT_SIZE_MAX,
-        iconColor: colors.primary,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
+      fabPill: {
+        flexDirection: 'row',
+        gap: spacing.xs,
+        borderRadius: borderRadius.pill,
+        paddingHorizontal: spacing.md - 2,
+        paddingVertical: spacing.sm,
+        borderWidth: 1,
+        backgroundColor: colors.bgMuted,
+        ...baseStyles.floating,
       },
-      {
-        icon: 'bookmarks-outline',
-        iconSize: 22,
-        onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onToggleHighlights();
-        },
-        iconColor: colors.primary,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
+      fabActionBtn: {
+        width: 44,
+        height: 40,
+        borderRadius: borderRadius.xxl,
+        alignItems: 'center',
+        justifyContent: 'center',
       },
-      {
-        icon: 'pricetag-outline',
-        iconSize: 22,
-        onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onToggleTags();
-        },
-        iconColor: colors.primary,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
-      },
-      {
-        renderContent: () => isFetching ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : (
-          <Ionicons name="refresh-outline" size={24} color={colors.primary} />
-        ),
-        onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          onRefresh?.();
-        },
-        disabled: isFetching,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
-      },
-      {
-        icon: isSpeaking ? 'stop-circle' : 'volume-high-outline',
-        onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          onToggleSpeech();
-        },
-        backgroundColor: isSpeaking ? colors.primary : 'transparent',
-        iconColor: isSpeaking ? colors.white : colors.primary,
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
-      },
-      {
-        icon: 'share-social-outline',
-        onPress: onShare,
-        iconColor: colors.primary,
-        backgroundColor: 'transparent',
-        useFloatingStyle: false,
-        style: styles.fabActionBtn,
-      }
-    );
-  }
+    });
+  }, [colors]);
 
   return (
     <View style={styles.fabActionRow}>
-      <FabGroup 
-        actions={actions} 
-        containerStyle={styles.fabPill} 
-        disableAbsolutePositioning 
-      />
+      <View style={styles.fabPill}>
+        <IconButton
+          name="arrow-back"
+          onPress={onBack}
+          style={styles.fabActionBtn}
+        />
+
+        <SegmentedControl
+          size="small"
+          options={[
+            { key: 'system', icon: 'settings-outline' },
+            { key: 'light', icon: 'sunny-outline' },
+            { key: 'dark', icon: 'moon-outline' },
+            { key: 'sepia', icon: 'color-filter-outline' },
+            { key: 'high-contrast', icon: 'contrast-outline' },
+          ]}
+          value={themeMode}
+          onChange={setThemeMode}
+          accessibilityLabel={t.theme}
+        />
+
+        {hasContent && (
+          <>
+            <IconButton
+              label="A−"
+              onPress={() => {
+                Haptics.selectionAsync();
+                onFontSizeChange(-2);
+              }}
+              disabled={fontSize <= FONT_SIZE_MIN}
+              style={styles.fabActionBtn}
+            />
+            <IconButton
+              label="A+"
+              onPress={() => {
+                Haptics.selectionAsync();
+                onFontSizeChange(2);
+              }}
+              disabled={fontSize >= FONT_SIZE_MAX}
+              style={styles.fabActionBtn}
+            />
+            <IconButton
+              name="bookmarks-outline"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onToggleHighlights();
+              }}
+              style={styles.fabActionBtn}
+            />
+            <IconButton
+              name="pricetag-outline"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onToggleTags();
+              }}
+              style={styles.fabActionBtn}
+            />
+            <IconButton
+              name="refresh-outline"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onRefresh?.();
+              }}
+              loading={isFetching}
+              style={styles.fabActionBtn}
+            />
+            <IconButton
+              name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onToggleSpeech();
+              }}
+              color={isSpeaking ? colors.white : colors.primary}
+              style={[
+                styles.fabActionBtn,
+                isSpeaking && { backgroundColor: colors.primary }
+              ]}
+            />
+            <IconButton
+              name="share-social-outline"
+              onPress={onShare}
+              style={styles.fabActionBtn}
+            />
+          </>
+        )}
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  fabActionRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 24,
-    alignItems: 'center',
-  },
-  fabPill: {
-    flexDirection: 'row',
-    gap: 4,
-    backgroundColor: colors.bgMuted,
-    borderRadius: 32,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...sharedStyles.floating,
-  },
-  fabActionBtn: {
-    width: 44,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

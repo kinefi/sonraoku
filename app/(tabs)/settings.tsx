@@ -1,120 +1,299 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
   StyleSheet,
-  StatusBar,
+  Linking,
   Alert,
+  AccessibilityInfo,
+  StatusBar,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sharedStyles } from '../../lib/theme';
-import { colors, HIGHLIGHT_COLORS, HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HighlightColor } from '../../lib/theme';
+import { sharedStyles, HIGHLIGHT_COLORS, spacing, borderRadius, typography } from '../../lib/theme';
 import { useLanguage } from '../../lib/languageContext';
+import { useTheme } from '../../lib/themeContext';
 import { LANGUAGES, Lang } from '../../lib/translations';
-import { getTotalCacheSize, clearAllImageCache } from '../../lib/imageCache';
 import { formatBytes } from '../../lib/utils';
-
-const FONT_SIZE_KEY = 'reader_font_size';
-const FONT_SIZE_DEFAULT = 16;
-const FONT_SIZE_MIN = 12;
-const FONT_SIZE_MAX = 36;
-
+import { APP_VERSION, APP_README, GITHUB_URL } from '../../lib/constants';
+import { useSettings } from '../../lib/hooks';
+import SegmentedControl from '../../components/SegmentedControl';
+import IconButton from '../../components/IconButton';
 
 export default function SettingsScreen() {
   const { t, lang, setLang } = useLanguage();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [fontSize, setFontSize] = useState(FONT_SIZE_DEFAULT);
-  const [highlightColor, setHighlightColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
-  const [cacheSize, setCacheSize] = useState<number>(0);
+  const { themeMode, setThemeMode, fontFamily, setFontFamily, colors, isDark, resetToDefaults } = useTheme();
+  
+  const { 
+    fontSize, 
+    highlightColor, 
+    cacheSize, 
+    changeFontSize, 
+    changeHighlightColor, 
+    handleClearCache,
+    FONT_SIZE_MIN,
+    FONT_SIZE_MAX 
+  } = useSettings();
+
+  // Local state for real-time font size testing in the preview block
+  const [previewFontSize, setPreviewFontSize] = useState(fontSize);
 
   useEffect(() => {
-    updateCacheSize();
+    setPreviewFontSize(fontSize);
+  }, [fontSize]);
 
-    AsyncStorage.getItem(FONT_SIZE_KEY)
-      .then((val) => { if (val) setFontSize(Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)))); })
-      .catch((e) => { console.error(e) });
-    AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
-      .then((val) => { if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) setHighlightColor(val as HighlightColor); })
-      .catch((e) => { console.error(e) });
-  }, []);
+  // Animation for background color transition
+  const bgColorAnim = useRef(new Animated.Value(0)).current;
+  const [prevColor, setPrevColor] = useState(colors.bgPage);
+  const [currColor, setCurrColor] = useState(colors.bgPage);
 
-  const updateCacheSize = async () => {
-    const size = await getTotalCacheSize();
-    setCacheSize(size);
-  };
+  useEffect(() => {
+    if (colors.bgPage !== currColor) {
+      setPrevColor(currColor);
+      setCurrColor(colors.bgPage);
+      bgColorAnim.setValue(0);
+      Animated.timing(bgColorAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [colors.bgPage]);
 
-  const handleClearCache = async () => {
-    Alert.alert(t.confirmDelete, t.clearCache, [
-      { text: t.back, style: 'cancel' },
-      { 
-        text: t.delete, 
-        style: 'destructive', 
-        onPress: async () => {
-          await clearAllImageCache();
-          await updateCacheSize();
-          Alert.alert(t.cacheCleared);
-        } 
-      },
-    ]);
-  };
+  const animatedBgColor = bgColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [prevColor, currColor],
+  });
 
-  function changeFontSize(delta: number) {
-    const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
-    setFontSize(next);
-    AsyncStorage.setItem(FONT_SIZE_KEY, String(next)).catch((e) => { console.error(e) });
-  }
-
-  function changeHighlightColor(color: HighlightColor) {
-    setHighlightColor(color);
-    AsyncStorage.setItem(HIGHLIGHT_COLOR_KEY, color).catch((e) => { console.error(e) });
-  }
-
-  const currentLabel = LANGUAGES.find((l) => l.key === lang)?.label ?? lang;
-
-  function handleSelect(key: Lang) {
-    setLang(key);
-    setPickerOpen(false);
-  }
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    section: {
+      backgroundColor: colors.white,
+      marginTop: spacing.xl,
+      marginHorizontal: spacing.lg,
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: 'hidden',
+    },
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: typography.weights.semibold,
+      color: colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: typography.letterSpacing.relaxed,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.sm - 2,
+    },
+    fontSizeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    fontBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: borderRadius.md,
+      backgroundColor: colors.bgMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fontBtnDisabled: {
+      backgroundColor: colors.bgPage,
+    },
+    fontBtnText: {
+      fontSize: 14,
+      color: colors.textPrimary,
+      fontWeight: typography.weights.medium,
+    },
+    fontBtnTextDisabled: {
+      color: colors.textFaint,
+    },
+    fontBtnTextLarge: {
+      fontSize: 16,
+    },
+    fontSizeValue: {
+      color: colors.textPrimary,
+      fontWeight: typography.weights.medium,
+    },
+    colorRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md + 2,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg - 2,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    colorSwatch: {
+      width: 32,
+      height: 32,
+      borderRadius: borderRadius.pill,
+      borderWidth: 2,
+      borderColor: 'transparent',
+    },
+    colorSwatchSelected: {
+      borderColor: colors.textPrimary,
+    },
+    storageRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg - 2,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    usageText: {
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    previewContainer: {
+      backgroundColor: colors.white,
+      marginTop: spacing.xl,
+      marginHorizontal: spacing.lg,
+      borderRadius: borderRadius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.lg,
+      minHeight: 120,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    previewText: {
+      color: colors.textPrimary,
+      fontSize: previewFontSize,
+      fontFamily: fontFamily === 'serif' ? 'serif' : 'sans-serif',
+      textAlign: 'center',
+    },
+    aboutContent: {
+      padding: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    aboutText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginBottom: 16,
+    },
+    aboutRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    aboutLabel: { fontSize: 13, color: colors.textMuted },
+    aboutValue: { fontSize: 13, color: colors.textPrimary, fontWeight: typography.weights.medium },
+    resetBtn: {
+      marginTop: spacing.sm,
+      marginHorizontal: spacing.lg,
+      marginBottom: spacing.lg,
+      height: 48,
+    },
+    linkText: {
+      color: colors.primary,
+      fontWeight: typography.weights.medium,
+    },
+  }), [colors, previewFontSize, fontFamily]);
 
   return (
-    <SafeAreaView style={sharedStyles.container}>
-      <StatusBar barStyle="dark-content" translucent={false} />
-      <View style={sharedStyles.header}>
-        <Text style={sharedStyles.headerTitle}>{t.settings}</Text>
+    <Animated.View style={[styles.container, { backgroundColor: animatedBgColor }]}>
+      <SafeAreaView style={{ flex: 1 }}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t.settings}</Text>
       </View>
 
+      <ScrollView showsVerticalScrollIndicator={false}>
       {/* Language */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>{t.language}</Text>
-        <TouchableOpacity style={styles.combobox} onPress={() => setPickerOpen(true)}>
-          <Text style={styles.comboboxText}>{currentLabel}</Text>
-          <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
-        </TouchableOpacity>
+        <SegmentedControl
+          options={LANGUAGES.map(l => ({ 
+            key: l.key, 
+            label: l.label, 
+            icon: 'language-outline' as const 
+          }))}
+          value={lang}
+          onChange={(newLang: Lang) => {
+            setLang(newLang);
+            const langLabel = LANGUAGES.find(l => l.key === newLang)?.label || newLang;
+            AccessibilityInfo.announceForAccessibility(`${t.language}: ${langLabel}`);
+          }}
+        />
+      </View>
+
+      {/* Theme */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.theme}</Text>
+        <SegmentedControl
+          options={[
+            { key: 'system', icon: 'settings-outline' },
+            { key: 'light', icon: 'sunny-outline' },
+            { key: 'dark', icon: 'moon-outline' },
+            { key: 'sepia', icon: 'color-filter-outline' },
+            { key: 'high-contrast', icon: 'contrast-outline' },
+          ]}
+          value={themeMode}
+          onChange={setThemeMode}
+          accessibilityLabel={t.theme}
+        />
+      </View>
+
+      {/* Preview Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.preview}</Text>
+        <View style={styles.previewContainer}>
+          <Text style={styles.previewText}>
+            The quick brown fox jumps over the lazy dog.
+          </Text>
+        </View>
+      </View>
+
+      {/* Font Family */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.fontFamily}</Text>
+        <SegmentedControl
+          options={['serif', 'sans-serif'] as const}
+          value={fontFamily}
+          onChange={setFontFamily}
+          getLabel={(val) => val === 'serif' ? t.serif : t.sansSerif}
+          accessibilityLabel={t.fontFamily}
+        />
       </View>
 
       {/* Font size */}
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>{t.defaultFontSize}</Text>
         <View style={styles.fontSizeRow}>
-          <TouchableOpacity
-            style={[styles.fontBtn, fontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
-            onPress={() => changeFontSize(-2)}
-            disabled={fontSize <= FONT_SIZE_MIN}
-          >
-            <Text style={[styles.fontBtnText, fontSize <= FONT_SIZE_MIN && styles.fontBtnTextDisabled]}>A−</Text>
-          </TouchableOpacity>
-          <Text style={[styles.fontSizeValue, { fontSize }]}>Aa</Text>
-          <TouchableOpacity
-            style={[styles.fontBtn, fontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
-            onPress={() => changeFontSize(2)}
-            disabled={fontSize >= FONT_SIZE_MAX}
-          >
-            <Text style={[styles.fontBtnText, { fontSize: 16 }, fontSize >= FONT_SIZE_MAX && styles.fontBtnTextDisabled]}>A+</Text>
-          </TouchableOpacity>
+          <IconButton
+            label="A−"
+            style={[styles.fontBtn, previewFontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
+            onPress={() => {
+              setPreviewFontSize(prev => Math.max(FONT_SIZE_MIN, prev - 2));
+              changeFontSize(-2);
+            }}
+            disabled={previewFontSize <= FONT_SIZE_MIN}
+            accessibilityLabel={t.minFontSizeReached}
+          />
+          <Text style={[styles.fontSizeValue, { fontSize: previewFontSize }]}>Aa</Text>
+          <IconButton
+            label="A+"
+            style={[styles.fontBtn, previewFontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
+            onPress={() => {
+              setPreviewFontSize(prev => Math.min(FONT_SIZE_MAX, prev + 2));
+              changeFontSize(2);
+            }}
+            disabled={previewFontSize >= FONT_SIZE_MAX}
+            accessibilityLabel={t.maxFontSizeReached}
+          />
         </View>
       </View>
 
@@ -123,11 +302,18 @@ export default function SettingsScreen() {
         <Text style={styles.sectionLabel}>{t.defaultHighlightColor}</Text>
         <View style={styles.colorRow}>
           {HIGHLIGHT_COLORS.map((color) => (
-            <TouchableOpacity
+            <IconButton
               key={color}
-              style={[styles.colorSwatch, { backgroundColor: color }, highlightColor === color && styles.colorSwatchSelected]}
               onPress={() => changeHighlightColor(color)}
-            />
+              accessibilityLabel={`${t.defaultHighlightColor} ${color}`}
+              style={[
+                styles.colorSwatch,
+                highlightColor === color && styles.colorSwatchSelected,
+                { padding: 0 }
+              ]}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color }} />
+            </IconButton>
           ))}
         </View>
       </View>
@@ -137,180 +323,79 @@ export default function SettingsScreen() {
         <Text style={styles.sectionLabel}>{t.storageUsage}</Text>
         <View style={styles.storageRow}>
           <Text style={styles.usageText}>{formatBytes(cacheSize)}</Text>
-          <TouchableOpacity onPress={handleClearCache}>
-            <Text style={styles.clearText}>{t.clearCache}</Text>
+          <IconButton 
+            label={t.clearCache} 
+            onPress={handleClearCache} 
+            color={colors.error} 
+            accessibilityRole="button" 
+            accessibilityLabel={t.clearCache} 
+          />
+        </View>
+      </View>
+
+      {/* About Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.about}</Text>
+        <View style={styles.aboutContent}>
+          <Text style={styles.aboutText}>{t.appDescription}</Text>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutLabel}>{t.version}</Text>
+            <Text style={styles.aboutValue}>{APP_VERSION}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.aboutRow} 
+            onPress={() => Linking.openURL(APP_README)}
+            accessibilityRole="link"
+            accessibilityLabel={t.readme}
+          >
+            <Text style={[styles.aboutLabel, styles.linkText]}>{t.readme}</Text>
+            <IconButton name="document-text-outline" size={16} color={colors.primary} passive />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.aboutRow, { marginTop: 8 }]} 
+            onPress={() => Linking.openURL(GITHUB_URL)}
+            accessibilityRole="link"
+            accessibilityLabel={t.github}
+          >
+            <Text style={[styles.aboutLabel, styles.linkText]}>{t.github}</Text>
+            <IconButton name="logo-github" size={16} color={colors.primary} passive />
           </TouchableOpacity>
         </View>
       </View>
 
-      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
-        <TouchableOpacity style={styles.backdrop} onPress={() => setPickerOpen(false)} activeOpacity={1} />
-        <View style={styles.dropdownWrapper}>
-          <View style={styles.dropdown}>
-            {LANGUAGES.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[styles.option, option.key === lang && styles.optionSelected]}
-                onPress={() => handleSelect(option.key)}
-              >
-                <Text style={[styles.optionText, option.key === lang && styles.optionTextSelected]}>
-                  {option.label}
-                </Text>
-                {option.key === lang && (
-                  <Ionicons name="checkmark" size={16} color={colors.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+      {/* Last Synced (Phase 3 Placeholder) */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>{t.lastSynced}</Text>
+        <TouchableOpacity 
+          style={[styles.storageRow, { borderTopWidth: 1, borderTopColor: colors.borderLight }]}
+          onPress={() => AccessibilityInfo.announceForAccessibility(t.notAvailablePhase3)}
+          accessibilityRole="button"
+        >
+          <Text style={styles.usageText}>{t.notAvailablePhase3}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Reset Section */}
+      <IconButton
+        label={t.resetToDefaults}
+        variant="outlined"
+        color={colors.error}
+        style={styles.resetBtn}
+        onPress={() => {
+          Alert.alert(t.resetToDefaults, t.confirmDelete, [
+            { text: t.cancel, style: 'cancel' },
+            { 
+              text: t.resetToDefaults,
+              style: 'destructive', 
+              onPress: resetToDefaults 
+            }
+          ]);
+        }}
+      />
+
+      <View style={{ height: 40 }} />
+      </ScrollView>
+      </SafeAreaView>
+    </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    backgroundColor: colors.white,
-    marginTop: 20,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  combobox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  comboboxText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  fontSizeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  fontBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: colors.bgMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fontBtnDisabled: {
-    backgroundColor: colors.bgPage,
-  },
-  fontBtnText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  fontBtnTextDisabled: {
-    color: colors.textFaint,
-  },
-  fontSizeValue: {
-    color: colors.textPrimary,
-    fontWeight: '500',
-  },
-  colorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  colorSwatch: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  colorSwatchSelected: {
-    borderColor: colors.textPrimary,
-  },
-  storageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-  },
-  usageText: {
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  clearText: {
-    fontSize: 15,
-    color: colors.error,
-    fontWeight: '600',
-  },
-  backdrop: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
-  dropdownWrapper: {
-    position: 'absolute',
-    top: '30%',
-    left: 32,
-    right: 32,
-  },
-  dropdown: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    elevation: 8,
-    shadowColor: colors.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  optionSelected: {
-    backgroundColor: colors.bgMuted,
-  },
-  optionText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  optionTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-});

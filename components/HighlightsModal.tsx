@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Highlight } from '../lib/db';
-import { colors } from '../lib/theme';
+import { sharedStyles, spacing, borderRadius } from '../lib/theme';
+import { useTheme } from '../lib/themeContext';
 import { useLanguage } from '../lib/languageContext';
+import IconButton from './IconButton';
 
 type Props = {
   visible: boolean;
@@ -15,6 +16,45 @@ type Props = {
 
 export default function HighlightsModal({ visible, onClose, highlights, onSelect, defaultColor }: Props) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalContent: {
+      height: '60%',
+      backgroundColor: colors.white,
+      borderTopLeftRadius: borderRadius.xxl,
+      borderTopRightRadius: borderRadius.xxl,
+      paddingTop: spacing.lg,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xl,
+      paddingBottom: spacing.lg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+    highlightsList: { paddingVertical: spacing.md },
+    highlightItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.xl,
+      paddingVertical: spacing.md + 2,
+      gap: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    highlightIndicator: { width: spacing.xs, height: spacing.xxl, borderRadius: borderRadius.xs },
+    highlightText: {
+      flex: 1, fontSize: 14, color: colors.textPrimary, lineHeight: 20,
+    },
+    emptyHighlights: { padding: spacing.xxxl + 8, alignItems: 'center' },
+    emptyHighlightsText: { color: colors.textMuted, fontSize: 14 },
+  }), [colors]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -22,9 +62,13 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{t.highlightsTitle}</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
+          <IconButton
+            name="close"
+            size={24}
+            color={colors.textPrimary}
+            onPress={onClose}
+            accessibilityLabel={t.back}
+          />
         </View>
         <FlatList
           data={highlights}
@@ -39,7 +83,7 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
               <Text style={styles.highlightText} numberOfLines={3}>
                 {item.selected_text}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+              <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
             </TouchableOpacity>
           )}
           ListEmptyComponent={
@@ -52,40 +96,3 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: {
-    height: '60%',
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingTop: 16,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
-  highlightsList: { paddingVertical: 10 },
-  highlightItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-  },
-  highlightIndicator: { width: 4, height: 24, borderRadius: 2 },
-  highlightText: {
-    flex: 1, fontSize: 14, color: colors.textPrimary, lineHeight: 20,
-  },
-  emptyHighlights: { padding: 40, alignItems: 'center' },
-  emptyHighlightsText: { color: colors.textMuted, fontSize: 14 },
-});

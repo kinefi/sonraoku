@@ -1,283 +1,262 @@
 import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
+import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { eq, and, or, like, desc, asc, inArray, isNotNull, exists } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
+import migrations from '../drizzle/migrations';
+import * as schema from './schema';
 
-const db = SQLite.openDatabaseSync('sonraoku.db');
+// Re-export for convenience in other files
+export * from './schema';
 
-export function initDb(): void {
-  db.execSync(`CREATE TABLE IF NOT EXISTS articles (
-  id TEXT PRIMARY KEY,
-  url TEXT NOT NULL,
-  title TEXT,
-  excerpt TEXT,
-  html_content TEXT,
-  lang TEXT,
-  is_read INTEGER DEFAULT 0,
-  is_archived INTEGER DEFAULT 0,
-  saved_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  synced_at INTEGER
-)`);
+const { articles, highlights, tags, articleTags } = schema;
 
-  db.execSync(`CREATE TABLE IF NOT EXISTS cached_images (
-  url TEXT PRIMARY KEY,
-  local_path TEXT NOT NULL,
-  article_id TEXT NOT NULL
-)`);
+const sqlite = SQLite.openDatabaseSync('sonraoku.db');
+export const db = drizzle(sqlite, { schema });
 
-  db.execSync(`CREATE TABLE IF NOT EXISTS highlights (
-  id TEXT PRIMARY KEY,
-  article_id TEXT NOT NULL,
-  selected_text TEXT NOT NULL,
-  context_before TEXT NOT NULL,
-  context_after TEXT NOT NULL,
-  created_at INTEGER NOT NULL
-)`);
+export async function initDb(): Promise<void> {
+  // Enable foreign key constraints
+  sqlite.execSync('PRAGMA foreign_keys = ON;');
 
-  db.execSync(`CREATE TABLE IF NOT EXISTS tags (
-  id TEXT PRIMARY KEY,
-  name TEXT UNIQUE
-)`);
+  try {
+    // WORKAROUND: Pre-emptively create the Drizzle migration metadata table using native driver.
+    // This prevents a known bug where Drizzle uses invalid PostgreSQL "SERIAL" syntax.
+    // We use INTEGER PRIMARY KEY (which is auto-incrementing in SQLite) to avoid syntax errors.
+    // This must happen before migrate() is called.
+    sqlite.execSync(`
+      CREATE TABLE IF NOT EXISTS "__drizzle_migrations" (
+        id INTEGER PRIMARY KEY,
+        hash TEXT NOT NULL,
+        created_at INTEGER
+      );
+    `);
 
-  db.execSync(`CREATE TABLE IF NOT EXISTS article_tags (
-  article_id TEXT,
-  tag_id TEXT,
-  PRIMARY KEY (article_id, tag_id)
-)`);
-
-  // Migration: add lang column to existing installs
-  const langColumnExists = db.getFirstSync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'lang'"
-  );
-  if (!langColumnExists?.count) {
-    db.execSync('ALTER TABLE articles ADD COLUMN lang TEXT');
-  }
-
-  // Migration: drop color column from highlights (color is now a display-only preference)
-  const highlightColorExists = db.getFirstSync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM pragma_table_info('highlights') WHERE name = 'color'"
-  );
-  if (highlightColorExists?.count) {
-    db.execSync(`CREATE TABLE highlights_new (
-      id TEXT PRIMARY KEY,
-      article_id TEXT NOT NULL,
-      selected_text TEXT NOT NULL,
-      context_before TEXT NOT NULL,
-      context_after TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )`);
-    db.execSync(`INSERT INTO highlights_new SELECT id, article_id, selected_text, context_before, context_after, created_at FROM highlights`);
-    db.execSync(`DROP TABLE highlights`);
-    db.execSync(`ALTER TABLE highlights_new RENAME TO highlights`);
+    // Use the imported migrations object for Expo runtime stability
+    await migrate(db as any, migrations);
+  } catch (e) {
+    console.error('Database migration failed:', e);
+    throw e;
   }
 }
 
-export type Article = {
-  id: string;
-  url: string;
-  title: string | null;
-  excerpt: string | null;
-  html_content: string | null;
-  lang: string | null;
-  is_read: number;
-  is_archived: number;
-  saved_at: number;
-  updated_at: number;
-  synced_at: number | null;
-};
+export type Article = typeof schema.articles.$inferSelect;
 
-export function insertArticle(id: string, url: string): void {
+export async function insertArticle(id: string, url: string): Promise<void> {
   const now = Date.now();
-  db.runSync(`INSERT INTO articles (id, url, saved_at, updated_at) VALUES (?, ?, ?, ?)`, [
+  await db.insert(articles).values({
     id,
     url,
-    now,
-    now,
-  ]);
+    saved_at: now,
+    updated_at: now,
+  });
 }
 
 function stripNulls(s: string): string {
   return s.replace(/\0/g, '');
 }
 
-export function updateArticleContent(
+export async function updateArticleContent(
   id: string,
   title: string,
   excerpt: string,
   htmlContent: string,
   lang: string
-): void {
-  db.runSync(
-    `UPDATE articles SET title = ?, excerpt = ?, html_content = ?, lang = ?, updated_at = ? WHERE id = ?`,
-    [stripNulls(title), stripNulls(excerpt), stripNulls(htmlContent), lang || null, Date.now(), id]
-  );
+): Promise<void> {
+  await db.update(articles).set({
+    title: stripNulls(title),
+    excerpt: stripNulls(excerpt),
+    html_content: stripNulls(htmlContent),
+    lang: lang || null,
+    updated_at: Date.now(),
+  }).where(eq(articles.id, id));
 }
 
-export function getAllArticles(): Article[] {
-  return db.getAllSync<Article>('SELECT * FROM articles ORDER BY saved_at DESC');
+export async function getAllArticles(): Promise<Article[]> {
+  return db.select().from(articles).orderBy(desc(articles.saved_at));
 }
 
-export function getArticles(
+export async function getArticles(
   limit: number,
   offset: number,
   filter: string,
   searchQuery: string,
   tagName?: string
-): Article[] {
-  let query = 'SELECT * FROM articles';
-  const params: (string | number)[] = [];
-  const whereClauses: string[] = [];
+): Promise<Article[]> {
+  const buildWhereClauses = () => {
+    const clauses = [];
 
-  if (filter === 'archived') {
-    whereClauses.push('is_archived = 1');
-  } else {
-    whereClauses.push('is_archived = 0');
-    if (filter === 'unread') whereClauses.push('is_read = 0');
-    if (filter === 'offline') whereClauses.push('html_content IS NOT NULL');
-  }
+    // Base filter logic
+    if (filter === 'archived') {
+      clauses.push(eq(articles.is_archived, 1));
+    } else {
+      clauses.push(eq(articles.is_archived, 0));
+      if (filter === 'unread') clauses.push(eq(articles.is_read, 0));
+      if (filter === 'offline') clauses.push(isNotNull(articles.html_content));
+    }
 
-  if (searchQuery.trim()) {
-    whereClauses.push(`(
-      title LIKE ? OR 
-      url LIKE ? OR 
-      excerpt LIKE ? OR 
-      id IN (SELECT article_id FROM article_tags JOIN tags ON article_tags.tag_id = tags.id WHERE tags.name LIKE ?)
-    )`);
-    const q = `%${searchQuery.trim()}%`;
-    params.push(q, q, q, q);
-  }
+    // Search query logic
+    const trimmedSearch = searchQuery.trim();
+    if (trimmedSearch) {
+      const q = `%${trimmedSearch}%`;
+      
+      clauses.push(or(
+        like(articles.title, q), 
+        like(articles.url, q), 
+        like(articles.excerpt, q), 
+        exists(
+          db.select().from(articleTags)
+            .innerJoin(tags, eq(articleTags.tag_id, tags.id))
+            .where(and(eq(articleTags.article_id, articles.id), like(tags.name, q)))
+        )
+      ));
+    }
 
-  if (tagName) {
-    whereClauses.push(`id IN (SELECT article_id FROM article_tags WHERE tag_id = (SELECT id FROM tags WHERE name = ?))`);
-    params.push(tagName.toLowerCase());
-  }
+    // Tag specific filter
+    if (tagName) {
+      clauses.push(exists(
+        db.select().from(articleTags)
+          .innerJoin(tags, eq(articleTags.tag_id, tags.id))
+          .where(and(eq(articleTags.article_id, articles.id), eq(tags.name, tagName.toLowerCase())))
+      ));
+    }
 
-  if (whereClauses.length > 0) {
-    query += ' WHERE ' + whereClauses.join(' AND ');
-  }
+    return and(...clauses);
+  };
 
-  query += ' ORDER BY saved_at DESC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
-
-  return db.getAllSync<Article>(query, params);
+  const query = db.select().from(articles);
+  return query
+    .where(buildWhereClauses())
+    .orderBy(desc(articles.saved_at))
+    .limit(limit)
+    .offset(offset);
 }
 
-export function getArticleById(id: string): Article | null {
-  return db.getFirstSync<Article>('SELECT * FROM articles WHERE id = ?', [id]);
+export async function getArticleById(id: string): Promise<Article | null> {
+  const result = await db.select().from(articles).where(eq(articles.id, id)).limit(1);
+  return result[0] ?? null;
 }
 
-export function markArticleRead(id: string): void {
-  db.runSync('UPDATE articles SET is_read = 1, updated_at = ? WHERE id = ?', [Date.now(), id]);
+export async function markArticleRead(id: string): Promise<void> {
+  await db.update(articles).set({ is_read: 1, updated_at: Date.now() }).where(eq(articles.id, id));
 }
 
-export function markArticleUnread(id: string): void {
-  db.runSync('UPDATE articles SET is_read = 0, updated_at = ? WHERE id = ?', [Date.now(), id]);
+export async function markArticleUnread(id: string): Promise<void> {
+  await db.update(articles).set({ is_read: 0, updated_at: Date.now() }).where(eq(articles.id, id));
 }
 
-export function archiveArticle(id: string): void {
-  db.runSync('UPDATE articles SET is_archived = 1, updated_at = ? WHERE id = ?', [Date.now(), id]);
+export async function archiveArticle(id: string): Promise<void> {
+  await db.update(articles).set({ is_archived: 1, updated_at: Date.now() }).where(eq(articles.id, id));
 }
 
-export function archiveAllReadArticles(): void {
-  db.runSync('UPDATE articles SET is_archived = 1, updated_at = ? WHERE is_read = 1 AND is_archived = 0', [Date.now()]);
+export async function archiveAllReadArticles(): Promise<void> {
+  await db.update(articles).set({ is_archived: 1, updated_at: Date.now() })
+    .where(and(eq(articles.is_read, 1), eq(articles.is_archived, 0)));
 }
 
-export function unarchiveArticle(id: string): void {
-  db.runSync('UPDATE articles SET is_archived = 0, updated_at = ? WHERE id = ?', [Date.now(), id]);
+export async function unarchiveArticle(id: string): Promise<void> {
+  await db.update(articles).set({ is_archived: 0, updated_at: Date.now() }).where(eq(articles.id, id));
 }
 
-export type Highlight = {
-  id: string;
-  article_id: string;
-  selected_text: string;
-  context_before: string;
-  context_after: string;
-  created_at: number;
-};
-
-export function getHighlightsByArticle(articleId: string): Highlight[] {
-  return db.getAllSync<Highlight>(
-    'SELECT * FROM highlights WHERE article_id = ? ORDER BY created_at ASC',
-    [articleId]
-  );
+export async function archiveArticles(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.update(articles).set({ is_archived: 1, updated_at: Date.now() }).where(inArray(articles.id, ids));
 }
 
-export function insertHighlight(
+export async function deleteArticles(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.delete(articles).where(inArray(articles.id, ids));
+}
+
+export async function markArticlesRead(ids: string[], isRead: boolean): Promise<void> {
+  if (ids.length === 0) return;
+  await db.update(articles).set({ is_read: isRead ? 1 : 0, updated_at: Date.now() }).where(inArray(articles.id, ids));
+}
+
+export type Highlight = typeof highlights.$inferSelect;
+
+export async function getHighlightsByArticle(articleId: string): Promise<Highlight[]> {
+  return db.select().from(highlights).where(eq(highlights.article_id, articleId)).orderBy(asc(highlights.created_at));
+}
+
+export async function insertHighlight(
   id: string,
   articleId: string,
   selectedText: string,
   contextBefore: string,
   contextAfter: string
-): void {
-  db.runSync(
-    `INSERT INTO highlights (id, article_id, selected_text, context_before, context_after, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, articleId, selectedText, contextBefore, contextAfter, Date.now()]
-  );
+): Promise<void> {
+  await db.insert(highlights).values({
+    id,
+    article_id: articleId,
+    selected_text: selectedText,
+    context_before: contextBefore,
+    context_after: contextAfter,
+    created_at: Date.now(),
+  });
 }
 
-export function deleteHighlight(id: string): void {
-  db.runSync('DELETE FROM highlights WHERE id = ?', [id]);
+export async function deleteHighlight(id: string): Promise<void> {
+  await db.delete(highlights).where(eq(highlights.id, id));
 }
 
 export type HighlightWithArticle = Highlight & { article_title: string | null };
 
-export function getAllHighlights(searchQuery?: string): HighlightWithArticle[] {
-  let query = `SELECT h.*, a.title as article_title 
-               FROM highlights h 
-               JOIN articles a ON h.article_id = a.id`;
-  const params: string[] = [];
+export async function getAllHighlights(searchQuery?: string): Promise<HighlightWithArticle[]> {
+  const q = searchQuery?.trim() ? `%${searchQuery.trim()}%` : null;
 
-  if (searchQuery?.trim()) {
-    query += ` WHERE h.selected_text LIKE ? OR a.title LIKE ?`;
-    const q = `%${searchQuery.trim()}%`;
-    params.push(q, q);
-  }
-
-  query += ` ORDER BY h.created_at DESC`;
-  return db.getAllSync<HighlightWithArticle>(query, params);
+  return db.select({
+    id: highlights.id,
+    article_id: highlights.article_id,
+    selected_text: highlights.selected_text,
+    context_before: highlights.context_before,
+    context_after: highlights.context_after,
+    created_at: highlights.created_at,
+    article_title: articles.title,
+  })
+    .from(highlights)
+    .innerJoin(articles, eq(highlights.article_id, articles.id))
+    .where(q ? or(like(highlights.selected_text, q), like(articles.title, q)) : undefined)
+    .orderBy(desc(highlights.created_at));
 }
 
+export async function getTagsForArticle(articleId: string): Promise<string[]> {
+  const results = await db.select({ name: tags.name })
+    .from(tags)
+    .innerJoin(articleTags, eq(tags.id, articleTags.tag_id))
+    .where(eq(articleTags.article_id, articleId))
+    .orderBy(asc(tags.name));
 
-export function getTagsForArticle(articleId: string): string[] {
-  return db.getAllSync<{ name: string }>(
-    `SELECT t.name FROM tags t 
-     JOIN article_tags at ON t.id = at.tag_id 
-     WHERE at.article_id = ? ORDER BY t.name ASC`,
-    [articleId]
-  ).map(r => r.name);
+  return results.map(r => r.name!).filter(Boolean);
 }
 
-export function getAllTags(searchQuery?: string): string[] {
-  let query = 'SELECT name FROM tags';
-  const params: string[] = [];
+export async function getAllTags(searchQuery?: string): Promise<string[]> {
+  const q = searchQuery?.trim() ? `%${searchQuery.trim()}%` : null;
+  const results = await db.select({ name: tags.name })
+    .from(tags)
+    .where(q ? like(tags.name, q) : undefined)
+    .orderBy(asc(tags.name));
 
-  if (searchQuery?.trim()) {
-    query += ' WHERE name LIKE ?';
-    params.push(`%${searchQuery.trim()}%`);
-  }
-
-  query += ' ORDER BY name ASC';
-  return db.getAllSync<{ name: string }>(query, params).map(r => r.name);
+  return results.map(r => r.name!).filter(Boolean);
 }
 
-export function addTagToArticle(articleId: string, tagName: string): void {
+export async function addTagToArticle(articleId: string, tagName: string): Promise<void> {
   const name = tagName.trim().toLowerCase();
   if (!name) return;
 
-  let tag = db.getFirstSync<{ id: string }>('SELECT id FROM tags WHERE name = ?', [name]);
-  let tagId = tag?.id;
+  const existingTag = await db.select({ id: tags.id }).from(tags).where(eq(tags.name, name)).limit(1);
+  let tagId = existingTag[0]?.id;
 
   if (!tagId) {
     tagId = Crypto.randomUUID();
-    db.runSync('INSERT INTO tags (id, name) VALUES (?, ?)', [tagId, name]);
+    await db.insert(tags).values({ id: tagId, name });
   }
 
-  db.runSync('INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)', [articleId, tagId]);
+  await db.insert(articleTags).values({ article_id: articleId, tag_id: tagId }).onConflictDoNothing();
 }
 
-export function removeTagFromArticle(articleId: string, tagName: string): void {
-  db.runSync(
-    `DELETE FROM article_tags WHERE article_id = ? AND tag_id = (SELECT id FROM tags WHERE name = ?)`,
-    [articleId, tagName.toLowerCase()]
-  );
+export async function removeTagFromArticle(articleId: string, tagName: string): Promise<void> {
+  const tag = await db.select({ id: tags.id }).from(tags).where(eq(tags.name, tagName.toLowerCase())).limit(1);
+  if (tag[0]) {
+    await db.delete(articleTags).where(and(eq(articleTags.article_id, articleId), eq(articleTags.tag_id, tag[0].id)));
+  }
 }

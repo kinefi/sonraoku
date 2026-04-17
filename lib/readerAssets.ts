@@ -1,16 +1,25 @@
-import { colors } from './theme';
+import { colors as ThemeColors, FontFamily, spacing, borderRadius, typography } from './theme';
 import { Highlight } from './db';
 
-export function getReaderStyles(fontSize: number, defaultColor: string): string {
+/**
+ * Generates CSS using the provided theme color palette.
+ * Supports any theme (light, dark, sepia, etc.) passed via the colors object.
+ */
+export function getReaderStyles(fontSize: number, fontFamily: FontFamily, defaultColor: string, colors: typeof ThemeColors): string {
+  const fontStack = fontFamily === 'serif' 
+    ? 'serif, "Times New Roman"' 
+    : '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
   return `
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: ${fontStack};
   font-size: ${fontSize}px;
-  line-height: 1.75;
+  line-height: ${typography.lineHeights.relaxed};
+  background-color: ${colors.white};
   color: ${colors.textPrimary};
-  padding: 20px;
-  padding-bottom: 60px;
+  padding: ${spacing.xl}px;
+  padding-bottom: ${spacing.xxxl * 2}px;
   margin: 0;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -21,33 +30,34 @@ body {
 }
 h1.title {
   font-size: ${fontSize + 6}px;
-  font-weight: 700;
+  font-weight: ${typography.weights.display};
+  letter-spacing: ${typography.letterSpacing.tight}px;
   color: ${colors.textPrimary};
-  line-height: 1.3;
-  margin: 0 0 24px;
+  line-height: ${typography.lineHeights.tight};
+  margin: 0 0 ${spacing.xxl}px;
 }
-p { margin: 0 0 14px; }
+p { margin: 0 0 ${spacing.lg}px; }
 blockquote {
-  border-left: 3px solid ${colors.primary};
-  padding-left: 12px;
+  border-left: ${spacing.xs - 1}px solid ${colors.primary};
+  padding-left: ${spacing.md}px;
   color: ${colors.textMuted};
-  margin: 0 0 14px;
+  margin: 0 0 ${spacing.lg}px;
 }
 a { color: ${colors.primary}; text-decoration: none; }
-h1, h2, h3, h4 { color: ${colors.textPrimary}; margin: 20px 0 8px; }
+h1, h2, h3, h4 { color: ${colors.textPrimary}; margin: ${spacing.xl}px 0 ${spacing.sm}px; }
 h1.title ~ * h1 { font-size: 1.4em; }
-img { max-width: 100%; height: auto; display: block; margin: 12px auto; border-radius: 4px; }
-figure { margin: 0 0 14px; }
-pre, code { font-size: 0.88em; background: ${colors.bgMuted}; border-radius: 4px; }
-pre { padding: 12px; overflow-x: auto; }
-code { padding: 1px 4px; }
-mark { border-radius: 2px; padding: 0 1px; cursor: pointer; }
+img { max-width: 100%; height: auto; display: block; margin: ${spacing.md}px auto; border-radius: ${borderRadius.sm}px; }
+figure { margin: 0 0 ${spacing.lg}px; }
+pre, code { font-size: 0.88em; background: ${colors.bgMuted}; border-radius: ${borderRadius.sm}px; }
+pre { padding: ${spacing.md}px; overflow-x: auto; color: ${colors.textPrimary}; }
+code { padding: 1px ${spacing.xs}px; }
+mark { border-radius: ${borderRadius.xs}px; padding: 0 1px; cursor: pointer; }
 #toolbar {
   position: absolute;
   display: none;
-  background: #1a1a1a;
-  border-radius: 10px;
-  padding: 6px;
+  background: ${colors.black};
+  border-radius: ${borderRadius.lg}px;
+  padding: ${spacing.sm - 2}px;
   flex-direction: row;
   align-items: center;
   z-index: 9999;
@@ -55,21 +65,21 @@ mark { border-radius: 2px; padding: 0 1px; cursor: pointer; }
 }
 #toolbar.visible { display: flex; }
 #save-btn, #del-btn {
-  width: 36px; height: 36px;
+  width: ${spacing.xxxl + 4}px; height: ${spacing.xxxl + 4}px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 18px;
+  border-radius: ${borderRadius.lg * 1.8}px;
   font-size: 22px;
   cursor: pointer;
   user-select: none;
 }
-#save-btn { background: ${defaultColor}; color: #000; }
-#del-btn { background: ${colors.error}; color: #fff; display: none; }
+#save-btn { background: ${defaultColor}; color: ${colors.black}; }
+#del-btn { background: ${colors.error}; color: ${colors.white}; display: none; }
 `;
 }
 
-export function getReaderScript(highlightsJson: string, defaultColorJson: string): string {
+export function getReaderScript(highlightsJson: string, defaultColorJson: string, colors: typeof ThemeColors): string {
   return `
 (function() {
 var CONTEXT = 30;
@@ -280,7 +290,7 @@ window.scrollToHighlight = function(id) {
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     var old = el.style.backgroundColor;
-    el.style.backgroundColor = '${colors.white}';
+    el.style.backgroundColor = '${colors.primary}66';
     el.style.outline = '2px solid ' + defaultColor;
     setTimeout(function() { el.style.backgroundColor = old; el.style.outline = 'none'; }, 800);
   }
@@ -296,12 +306,37 @@ injectHighlights(${highlightsJson});
 `;
 }
 
+export function getReaderSettingsScript(
+  fontSize: number,
+  fontFamily: FontFamily,
+  highlights: Highlight[],
+  colors: typeof ThemeColors
+): string {
+  const hsJson = JSON.stringify(highlights);
+  const fontStack = fontFamily === 'serif' ? 'serif, "Times New Roman"' : 'sans-serif, Arial';
+  
+  return `
+    (function() {
+      document.body.style.fontSize = '${fontSize}px';
+      document.body.style.fontFamily = '${fontStack}';
+      document.body.style.backgroundColor = '${colors.white}';
+      document.body.style.color = '${colors.textPrimary}';
+      var t = document.querySelector('h1.title');
+      if (t) { t.style.fontSize = '${fontSize + 6}px'; t.style.color = '${colors.textPrimary}'; }
+      window.updateHighlights(${hsJson});
+    })();
+    true;
+  `;
+}
+
 export function buildReaderHtml(
   title: string,
   content: string,
   fontSize: number,
+  fontFamily: FontFamily,
   defaultColor: string,
-  highlights: Highlight[]
+  highlights: Highlight[],
+  colors: typeof ThemeColors
 ): string {
   const escapedTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const highlightsJson = JSON.stringify(highlights);
@@ -312,7 +347,7 @@ export function buildReaderHtml(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-<style>${getReaderStyles(fontSize, defaultColor)}</style>
+<style>${getReaderStyles(fontSize, fontFamily, defaultColor, colors)}</style>
 </head>
 <body>
 <h1 class="title">${escapedTitle}</h1>
@@ -321,7 +356,7 @@ export function buildReaderHtml(
   <div id="save-btn">&#x270E;</div>
   <div id="del-btn">&#x2715;</div>
 </div>
-<script>${getReaderScript(highlightsJson, defaultColorJson)}</script>
+<script>${getReaderScript(highlightsJson, defaultColorJson, colors)}</script>
 </body>
 </html>`;
 }

@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
   KeyboardAvoidingView,
+  AccessibilityInfo,
   Platform,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { colors } from '../lib/theme';
+import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
 import { queryClient } from '../lib/queryClient';
 import { insertArticle } from '../lib/db';
 import { fetchRawHtml } from '../lib/utils';
 import { buildParserHtml } from '../lib/htmlBuilder';
 import { useParseQueue } from '../lib/parseQueue';
 import { useLanguage } from '../lib/languageContext';
+import { useTheme } from '../lib/themeContext';
+import IconButton from './IconButton';
 
 type Props = {
   visible: boolean;
@@ -33,6 +35,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { addToQueue } = useParseQueue();
+  const { colors } = useTheme();
   const { t } = useLanguage();
 
   async function handleSave() {
@@ -44,12 +47,14 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
     } catch {
       setError(t.invalidUrl);
+      AccessibilityInfo.announceForAccessibility(t.invalidUrl);
       return;
     }
 
     const fullUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
     setError('');
     setLoading(true);
+    AccessibilityInfo.announceForAccessibility(t.loading);
 
     const id = generateId();
     insertArticle(id, fullUrl);
@@ -60,8 +65,14 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
 
     // Fetch + queue in background — sheet is already closed
     fetchRawHtml(fullUrl)
-      .then((rawHtml) => addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl }))
-      .catch((e) => { console.error(e) });
+      .then((rawHtml) => {
+        addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl });
+        AccessibilityInfo.announceForAccessibility(t.downloadSuccess);
+      })
+      .catch((e) => { 
+        console.error(e);
+        AccessibilityInfo.announceForAccessibility(t.downloadError);
+      });
   }
 
   function handleClose() {
@@ -70,6 +81,64 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     setError('');
     onClose();
   }
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    backdrop: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    sheetWrapper: {
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      backgroundColor: colors.white,
+      borderTopLeftRadius: borderRadius.xxl,
+      borderTopRightRadius: borderRadius.xxl,
+      paddingHorizontal: spacing.xl,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.xxxl,
+    },
+    handle: {
+      width: 36,
+      height: spacing.xs,
+      backgroundColor: colors.borderMid,
+      borderRadius: borderRadius.xs,
+      alignSelf: 'center',
+      marginBottom: spacing.lg,
+    },
+    heading: {
+      fontSize: 17,
+      fontWeight: typography.weights.semibold,
+      color: colors.textPrimary,
+      marginBottom: spacing.lg,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.borderMid,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: spacing.md + 2,
+      paddingVertical: spacing.md,
+      fontSize: 15,
+      color: colors.textPrimary,
+      marginBottom: spacing.sm,
+    },
+    error: {
+      color: colors.error,
+      fontSize: 13,
+      marginBottom: spacing.sm,
+    },
+    saveBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.lg,
+      paddingVertical: spacing.md + 2,
+      alignItems: 'center',
+      marginTop: spacing.xs,
+    },
+    saveBtnDisabled: {
+      opacity: 0.6,
+    },
+  }), [colors]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
@@ -101,81 +170,16 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+          <IconButton
+            label={t.save}
+            variant="filled"
             onPress={handleSave}
+            loading={loading}
             disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.saveBtnText}>{t.save}</Text>
-            )}
-          </TouchableOpacity>
+            style={styles.saveBtn}
+          />
         </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheetWrapper: {
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    backgroundColor: colors.borderMid,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  heading: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.borderMid,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  error: {
-    color: colors.error,
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  saveBtnDisabled: {
-    opacity: 0.6,
-  },
-  saveBtnText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});

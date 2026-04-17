@@ -56,7 +56,7 @@ export async function cacheArticleImages(
   // Create article-specific directory: {Documents}/images/{articleId}/
   const dir = new Directory(Paths.document, 'images', articleId);
   if (!dir.exists) {
-    await dir.create();
+    dir.create();
   }
 
   // Download all images in parallel (using Settled so one failure doesn't block others)
@@ -101,6 +101,13 @@ async function getDirSize(dir: Directory): Promise<number> {
   return size;
 }
 
+export async function deleteArticleImageCache(articleId: string): Promise<void> {
+  const dir = new Directory(Paths.document, 'images', articleId);
+  if (dir.exists) {
+    dir.delete();
+  }
+}
+
 export async function getTotalCacheSize(): Promise<number> {
   const dir = new Directory(Paths.document, 'images');
   if (!dir.exists) return 0;
@@ -110,6 +117,6 @@ export async function getTotalCacheSize(): Promise<number> {
 export async function clearAllImageCache(): Promise<void> {
   const dir = new Directory(Paths.document, 'images');
   if (dir.exists) {
-    await dir.delete();
+    dir.delete();
   }
 }

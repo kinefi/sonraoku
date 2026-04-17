@@ -1,227 +1,193 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Share } from 'react-native';
+import { useState, useEffect, useCallback, useContext } from 'react';
+import { Alert, Share } from 'react-native';
 import * as Speech from 'expo-speech';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useLanguage } from './languageContext';
+import { HighlightColor } from './theme';
 import { 
-  addTagToArticle, 
-  removeTagFromArticle, 
-  insertHighlight, 
-  deleteHighlight 
+  useTheme, 
+  FONT_SIZE_MIN, 
+  FONT_SIZE_MAX 
+} from './themeContext';
+import { getTotalCacheSize, clearAllImageCache } from './imageCache';
+import { 
+  addTagToArticle, removeTagFromArticle, 
+  insertHighlight, deleteHighlight 
 } from './db';
-import { fetchRawHtml, buildParserHtml } from './utils';
-import { useParseQueue } from './parseQueue';
-import { ReaderMessage } from '../components/ReaderView';
-import { HIGHLIGHT_COLOR_DEFAULT, HIGHLIGHT_COLOR_KEY, HIGHLIGHT_COLORS, HighlightColor } from './theme';
+import { queryClient } from './queryClient';
+import { ParseQueueContext } from './parseQueue';
+import { fetchRawHtml } from './utils';
 
-// --- Settings Hook Logic ---
-const FONT_SIZE_KEY = 'reader_font_size';
-export const FONT_SIZE_DEFAULT = 16;
-export const FONT_SIZE_MIN = 12;
-export const FONT_SIZE_MAX = 36;
+export function useSettings() {
+  const { t } = useLanguage();
+  const { 
+    fontSize, setFontSize, 
+    highlightColor, setHighlightColor 
+  } = useTheme();
+  const [cacheSize, setCacheSize] = useState<number>(0);
 
-let _fontSizeCache: number | null = null;
-
-export function useArticleSettings() {
-  const [fontSize, setFontSize] = useState(_fontSizeCache ?? FONT_SIZE_DEFAULT);
-  const [defaultColor, setDefaultColor] = useState<HighlightColor>(HIGHLIGHT_COLOR_DEFAULT);
-
-  useEffect(() => {
-    AsyncStorage.getItem(FONT_SIZE_KEY)
-      .then((val) => {
-        if (val) {
-          const parsed = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, parseInt(val, 10)));
-          if (parsed !== _fontSizeCache) {
-            _fontSizeCache = parsed;
-            setFontSize(parsed);
-          }
-        }
-      })
-      .catch(console.error);
-
-    AsyncStorage.getItem(HIGHLIGHT_COLOR_KEY)
-      .then((val) => {
-        if (val && (HIGHLIGHT_COLORS as readonly string[]).includes(val)) {
-          setDefaultColor(val as HighlightColor);
-        }
-      })
-      .catch(console.error);
+  const updateCacheSize = useCallback(async () => {
+    try {
+      const size = await getTotalCacheSize();
+      setCacheSize(size);
+    } catch (e) {
+      console.warn('Failed to calculate cache size:', e);
+    }
   }, []);
 
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        await updateCacheSize();
+      } catch (e) {
+        console.error('Failed to load settings:', e);
+      }
+    };
+    loadSettings();
+  }, [updateCacheSize]);
+
   const changeFontSize = useCallback((delta: number) => {
-    const next = Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, fontSize + delta));
-    _fontSizeCache = next;
-    setFontSize(next);
-    AsyncStorage.setItem(FONT_SIZE_KEY, String(next));
-  }, [fontSize]);
+    setFontSize(fontSize + delta);
+  }, [fontSize, setFontSize]);
 
-  return { fontSize, changeFontSize, defaultColor };
+  const changeHighlightColor = useCallback((color: HighlightColor) => {
+    setHighlightColor(color);
+  }, [setHighlightColor]);
+
+  const handleClearCache = useCallback(async () => {
+    Alert.alert(t.confirmDelete, t.clearCache, [
+      { text: t.back, style: 'cancel' },
+      {
+        text: t.delete,
+        style: 'destructive',
+        onPress: async () => {
+          await clearAllImageCache();
+          await updateCacheSize();
+          Alert.alert(t.cacheCleared);
+        }
+      },
+    ]);
+  }, [t, updateCacheSize]);
+
+  return {
+    fontSize,
+    highlightColor,
+    cacheSize,
+    changeFontSize,
+    changeHighlightColor,
+    handleClearCache,
+    updateCacheSize,
+    FONT_SIZE_MIN,
+    FONT_SIZE_MAX
+  };
 }
 
-// --- Speech Hook Logic ---
-const SPEECH_CHUNK_MAX_LEN = 4000;
-const SPEECH_RATE = 1.0;
-const SPEECH_SAFETY_TIMEOUT_MS = 30_000;
-
-function splitIntoChunks(text: string, maxLen: number): string[] {
-  const chunks: string[] = [];
-  let remaining = text.trim();
-  while (remaining.length > maxLen) {
-    let cut = remaining.lastIndexOf('. ', maxLen);
-    if (cut === -1) cut = remaining.lastIndexOf(' ', maxLen);
-    if (cut === -1) cut = maxLen;
-    else cut += 1;
-    chunks.push(remaining.slice(0, cut).trim());
-    remaining = remaining.slice(cut).trim();
-  }
-  if (remaining.length > 0) chunks.push(remaining);
-  return chunks;
-}
-
-function htmlToPlainText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-function normalizeLang(lang?: string | null): string {
-  if (!lang) return 'tr';
-  return lang.split('-')[0].split('_')[0].toLowerCase();
+export function useArticleSettings() {
+  const { fontSize, changeFontSize, highlightColor } = useSettings();
+  const { fontFamily, colors } = useTheme();
+  return {
+    fontSize,
+    changeFontSize,
+    defaultColor: highlightColor,
+    fontFamily,
+    colors,
+  };
 }
 
 export function useArticleSpeech(htmlContent: string | null, lang: string | null) {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const speechChunksRef = useRef<string[]>([]);
-  const speechChunkIndexRef = useRef(0);
-  const speechSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speakNextChunkRef = useRef<() => void>(() => {});
 
-  const stopSpeech = useCallback(async () => {
-    await Speech.stop();
-    if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
-    speechChunksRef.current = [];
-    speechChunkIndexRef.current = 0;
+  const stopSpeech = useCallback(() => {
+    Speech.stop();
     setIsSpeaking(false);
   }, []);
 
-  speakNextChunkRef.current = () => {
-    if (speechSafetyTimerRef.current) clearTimeout(speechSafetyTimerRef.current);
-    const idx = speechChunkIndexRef.current;
-    const chunks = speechChunksRef.current;
-    if (idx >= chunks.length) {
-      setIsSpeaking(false);
-      return;
-    }
-    speechChunkIndexRef.current = idx + 1;
-    speechSafetyTimerRef.current = setTimeout(() => setIsSpeaking(false), SPEECH_SAFETY_TIMEOUT_MS);
-    Speech.speak(chunks[idx], {
-      language: normalizeLang(lang),
-      rate: SPEECH_RATE,
-      onDone: () => speakNextChunkRef.current(),
-      onStopped: () => stopSpeech(),
-      onError: () => stopSpeech(),
-    });
-  };
-
-  const toggleSpeech = useCallback(async () => {
+  const toggleSpeech = useCallback(() => {
     if (isSpeaking) {
-      await stopSpeech();
+      stopSpeech();
       return;
     }
+
     if (!htmlContent) return;
-    const text = htmlToPlainText(htmlContent);
-    speechChunksRef.current = splitIntoChunks(text, SPEECH_CHUNK_MAX_LEN);
-    speechChunkIndexRef.current = 0;
+
+    // Strip HTML tags and normalize whitespace
+    const plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!plainText) return;
+
     setIsSpeaking(true);
-    speakNextChunkRef.current();
-  }, [isSpeaking, htmlContent, stopSpeech]);
+    
+    // Speech.speak has character limits on some engines, but usually handles long text by chunking internally
+    // We use the article's detected language or fallback to Turkish
+    Speech.speak(plainText, {
+      language: lang || 'tr',
+      onDone: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  }, [isSpeaking, htmlContent, lang, stopSpeech]);
 
   useEffect(() => {
-    return () => { stopSpeech(); };
-  }, [stopSpeech]);
-
-  return { isSpeaking, toggleSpeech };
-}
-
-// --- Actions Hook Logic ---
-export function useArticleActions(id: string | undefined, url: string | undefined, title: string | null | undefined) {
-  const queryClient = useQueryClient();
-  const { addToQueue } = useParseQueue();
-  const [isFetching, setIsFetching] = useState(false);
-  const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error'>('idle');
-  const fetchStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (fetchStatusTimerRef.current) clearTimeout(fetchStatusTimerRef.current);
-    };
+    return () => { Speech.stop(); };
   }, []);
 
+  return { isSpeaking, toggleSpeech, stopSpeech };
+}
+
+export function useArticleActions(articleId?: string, url?: string, title?: string | null) {
+  const { t } = useLanguage();
+  const { addToQueue } = useContext(ParseQueueContext);
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState<string | null>(null);
+
   const handleFetchAgain = useCallback(async () => {
-    if (!id || !url || isFetching) return;
+    if (!articleId || !url) return;
     setIsFetching(true);
-    setFetchStatus('fetching');
+    setFetchStatus(t.loading);
     try {
-      const rawHtml = await fetchRawHtml(url);
-      const parserHtml = buildParserHtml(rawHtml, url);
-      addToQueue({ id, html: parserHtml, url });
-      setFetchStatus('success');
-      fetchStatusTimerRef.current = setTimeout(() => setFetchStatus('idle'), 3000);
-    } catch {
-      setFetchStatus('error');
-      fetchStatusTimerRef.current = setTimeout(() => setFetchStatus('idle'), 3000);
+      const html = await fetchRawHtml(url);
+      addToQueue({ id: articleId, url, html, retries: 0 });
+      setFetchStatus(t.downloadSuccess);
+    } catch (e) {
+      setFetchStatus(t.downloadError);
+      console.error(e);
     } finally {
       setIsFetching(false);
+      setTimeout(() => setFetchStatus(null), 3000);
     }
-  }, [id, url, isFetching, addToQueue]);
+  }, [articleId, url, t, addToQueue]);
 
   const handleShare = useCallback(async () => {
     if (!url) return;
     try {
       await Share.share({
-        message: title ? `${title}\n${url}` : url,
-        url,
+        title: title || t.appName,
+        message: url,
       });
     } catch (e) {
       console.error(e);
     }
   }, [url, title]);
 
-  const handleAddTag = useCallback((tagName: string) => {
-    if (!id || !tagName.trim()) return;
-    addTagToArticle(id, tagName);
-    queryClient.invalidateQueries({ queryKey: ['tags', id] });
-    queryClient.invalidateQueries({ queryKey: ['articles'] });
-  }, [id, queryClient]);
+  const handleAddTag = useCallback(async (tagName: string) => {
+    if (!articleId || !tagName.trim()) return;
+    await addTagToArticle(articleId, tagName);
+    queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
+  }, [articleId]);
 
-  const handleRemoveTag = useCallback((tagName: string) => {
-    if (!id) return;
-    removeTagFromArticle(id, tagName);
-    queryClient.invalidateQueries({ queryKey: ['tags', id] });
-    queryClient.invalidateQueries({ queryKey: ['articles'] });
-  }, [id, queryClient]);
+  const handleRemoveTag = useCallback(async (tagName: string) => {
+    if (!articleId) return;
+    await removeTagFromArticle(articleId, tagName);
+    queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
+  }, [articleId]);
 
-  const handleReaderMessage = useCallback((msg: ReaderMessage) => {
-    if (!id) return;
+  const handleReaderMessage = useCallback(async (msg: any) => {
+    if (!articleId) return;
     if (msg.type === 'highlight') {
-      insertHighlight(msg.id, id, msg.text, msg.contextBefore, msg.contextAfter);
-      queryClient.invalidateQueries({ queryKey: ['highlights', id] });
+      await insertHighlight(msg.id, articleId, msg.text, msg.contextBefore, msg.contextAfter);
+      queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
     } else if (msg.type === 'delete-highlight') {
-      deleteHighlight(msg.id);
-      queryClient.invalidateQueries({ queryKey: ['highlights', id] });
+      await deleteHighlight(msg.id);
+      queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
     }
-  }, [id, queryClient]);
+  }, [articleId]);
 
   return {
     isFetching,

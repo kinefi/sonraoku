@@ -29,11 +29,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Build package
-        run: pnpm build:android --local
+        run: pnpm build:android:local
       - uses: WyriHaximus/github-action-get-previous-tag@v1
         id: currenttag
       - name: Rename AAB
-        run: mv build-*.aab sonraoku-${{ steps.currenttag.outputs.tag }}.aab
+        run: |
+          AAB_FILE=$(ls build-*.aab 2>/dev/null | head -n 1)
+          if [ -f "$AAB_FILE" ]; then
+            mv "$AAB_FILE" "sonraoku-${{ steps.currenttag.outputs.tag }}.aab"
+          else
+            echo "Error: No build-*.aab file found to rename."
+            exit 1
+          fi
       - uses: softprops/action-gh-release@v2
         with:
           files: sonraoku-${{ steps.currenttag.outputs.tag }}.aab

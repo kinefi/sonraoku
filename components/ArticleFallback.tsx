@@ -1,7 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Linking, StyleSheet } from 'react-native';
-import { colors } from '../lib/theme';
+import React, { useMemo } from 'react';
+import { View, Text, Linking, StyleSheet } from 'react-native';
+import { sharedStyles, spacing, borderRadius } from '../lib/theme';
 import { useLanguage } from '../lib/languageContext';
+import { interpolate } from '../lib/translations';
+import { useTheme } from '../lib/themeContext';
+import IconButton from './IconButton';
 
 type Props = {
   title: string | null;
@@ -13,67 +16,61 @@ type Props = {
 
 export default function ArticleFallback({ title, url, isFetching, fetchStatus, onFetchAgain }: Props) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    fallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.xxxl,
+      gap: spacing.lg,
+      backgroundColor: colors.bgPage,
+    },
+    fallbackText: {
+      fontSize: 15,
+      color: colors.textMuted,
+      textAlign: 'center',
+    },
+    openBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.lg,
+    },
+    fetchBtn: {
+      backgroundColor: colors.bgMuted,
+      paddingHorizontal: spacing.xxl,
+      paddingVertical: spacing.md,
+      borderRadius: borderRadius.lg,
+      marginTop: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    fetchBtnDisabled: { opacity: 0.6 },
+  }), [colors]);
 
   return (
     <View style={styles.fallback}>
       <Text style={styles.fallbackText}>
-        {title ? t.couldNotLoad(title) : t.noContent}
+        {title ? interpolate(t.couldNotLoad, { title }) : t.noContent}
       </Text>
-      <TouchableOpacity style={styles.openBtn} onPress={() => Linking.openURL(url)}>
-        <Text style={styles.openBtnText}>{t.openInBrowser}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.fetchBtn, isFetching && styles.fetchBtnDisabled]}
+      <IconButton
+        label={t.openInBrowser}
+        variant="filled"
+        onPress={() => Linking.openURL(url)}
+        style={styles.openBtn}
+      />
+      <IconButton
+        label={fetchStatus === 'success' ? t.downloadSuccess : fetchStatus === 'error' ? t.downloadError : t.downloadOffline}
+        variant="outlined"
+        color={fetchStatus === 'success' ? colors.success : fetchStatus === 'error' ? colors.error : colors.primary}
         onPress={onFetchAgain}
+        loading={isFetching}
         disabled={isFetching}
-      >
-        {isFetching ? (
-          <ActivityIndicator size="small" color={colors.primary} />
-        ) : fetchStatus === 'success' ? (
-          <Text style={styles.fetchBtnTextSuccess}>{t.downloadSuccess}</Text>
-        ) : fetchStatus === 'error' ? (
-          <Text style={styles.fetchBtnTextError}>{t.downloadError}</Text>
-        ) : (
-          <Text style={styles.fetchBtnText}>{t.downloadOffline}</Text>
-        )}
-      </TouchableOpacity>
+        style={styles.fetchBtn}
+      />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  fallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    gap: 16,
-  },
-  fallbackText: {
-    fontSize: 15,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  openBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-  },
-  openBtnText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  fetchBtn: {
-    backgroundColor: colors.bgMuted,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 12,
-  },
-  fetchBtnDisabled: { opacity: 0.6 },
-  fetchBtnText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
-  fetchBtnTextSuccess: { color: colors.success, fontSize: 15, fontWeight: '600' },
-  fetchBtnTextError: { color: colors.error, fontSize: 15, fontWeight: '600' },
-});

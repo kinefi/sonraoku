@@ -12,7 +12,7 @@ article URLs, the app fetches and parses the article content locally, and stores
 offline reading. A FastAPI backend will be added later for cross-device sync — but the
 app must be fully functional offline-first without it.
 
-**Language:** All user-facing strings must go through the i18n system (`lib/i18n.ts`).
+**Language:** All user-facing strings must go through the i18n system (`lib/translations.ts`).
 The app supports Turkish and English with an in-app language switcher in settings.
 
 ---
@@ -22,7 +22,7 @@ The app supports Turkish and English with an in-app language switcher in setting
 ### Mobile (primary focus now)
 
 - **Expo SDK 55** (TypeScript, file-based routing via expo-router, pnpm)
-- **Expo SQLite** — local database, single source of truth
+- **Drizzle ORM + Expo SQLite** — local database, single source of truth; schema-first with automated migrations via `drizzle-kit`
 - **TanStack Query (React Query)** — server state, optimistic updates, mutation queue
 - **react-native-webview** — hidden WebView for article parsing (see parser section)
 - **@mozilla/readability** — article parsing library (runs inside the hidden WebView); source
@@ -74,11 +74,12 @@ components/
   SearchBar.tsx
   FabGroup.tsx
 lib/
-  db.ts                # SQLite setup, schema, and all CRUD helpers
+  db.ts                # Database connection, migration runner, and CRUD helpers
+  schema.ts            # Drizzle ORM table and relation definitions
   utils.ts             # shared helpers (domain, read time, fetchRawHtml)
   translations.ts      # TR/EN strings and interpolation logic
   languageContext.tsx  # LanguageProvider + useLanguage hook (translate helper)
-  hooks.ts             # Shared screen logic (Settings, Speech, Actions)
+  hooks.ts             # Custom hooks for managing app-wide settings (e.g., font size, highlight color, cache)
   imageCache.ts        # Downloads + local caching of article images
   parseQueue.tsx       # React context for background article parsing
   queryClient.ts       # TanStack Query configuration
@@ -88,6 +89,7 @@ lib/
   constants.ts         # Global keys (Storage, etc)
 scripts/
   rawStringTransformer.js  # Serves @mozilla/readability/Readability.js as raw string
+drizzle/               # Generated SQL migrations and metadata
 ```
 
 ---
@@ -204,8 +206,12 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - Active/pressed primary: `colors.primaryDark` (`#3f369f`)
 - Offline indicator: `colors.success` (`#1D9E75`, green dot)
 - Error/archive: `colors.error` (`#e53e3e`)
- - All color values must use `lib/theme.ts` tokens; never write hex codes directly in components
+- Use `useTheme()` hook for dynamic colors (supports light/dark mode transitions).
+- Support for 'Sepia' and 'High Contrast' accessibility themes.
+- Wrap `StyleSheet.create` in `useMemo` and integrate `sharedStyles(colors)` to maintain consistent, responsive layouts.
+- All color values must use `lib/theme.ts` tokens; never write hex codes directly in components.
 - Clean, minimal — content-first, no heavy chrome
+- Centralized `IconButton` component for consistent interactions and accessibility properties.
 - No gradients; minimal elevation/shadow only on floating elements (FAB, modal dropdowns)
 
 ### List screen
@@ -225,6 +231,7 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - Font size controls (A− / A+) in bottom bar, disabled at min/max limits (12–36pt)
 - Font size persisted to AsyncStorage key `'reader_font_size'`; default 16pt
 - Read aloud (expo-speech) splits text into ≤4000 char chunks; uses article `lang` for TTS language, falls back to `'tr'`
+- Swipe actions include accessibility hints and announcements for screen reader users.
 - Blockquotes styled with left purple border accent
 
 ---
@@ -250,13 +257,15 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - [x] Parse failure fallback UI with retry button
 - [x] Parse retry logic (up to 2 retries on failure)
 - [x] Shared design tokens (`lib/theme.ts`) — all hex codes banned from components
-- [x] i18n support — Turkish/English with in-app language switcher (`lib/i18n.ts`, `lib/languageContext.tsx`)
+- [x] i18n support — Turkish/English with in-app language switcher (`lib/translations.ts`, `lib/languageContext.tsx`)
 - [x] Default font size setting in settings screen
 - [x] Metro transformer for Readability.js (replaces postinstall script)
 - [x] DB initialization moved to `useEffect` to prevent splash screen freeze
 - [X] Article search functionality to filter articles
 - [X] Show only 20 recent articles in list and load more when list pulled down
 - [X] Add article tagging mechanism
+- [x] Storage usage monitoring and cache clearing in settings
+- [ ] Add git tag and versioning mechanism
 
 ### Phase 3 — Backend sync
 
@@ -274,6 +283,7 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - No Mercury Parser or any paid/external parsing API
 - App must be fully usable with no network connection
 - Backend is a future concern — do not block Phase 1 on it
+- Follow Rule of Hooks strictly: initialize all hooks at the top level before any conditional returns.
 - Prefer concise, readable TypeScript — no over-engineering
 - Use functional components + hooks throughout
 - Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup
