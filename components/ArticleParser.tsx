@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo, useCallback } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLanguage } from '../lib/languageContext';
+import { TIMEOUTS } from '../lib/constants';
 
 export type ParseResult = {
   title: string;
@@ -10,14 +11,20 @@ export type ParseResult = {
   lang: string;
 };
 
+interface ParserMessageData {
+  success: boolean;
+  title?: string;
+  content?: string;
+  excerpt?: string;
+  lang?: string;
+  error?: string;
+}
+
 type Props = {
   html: string;
   onParsed: (result: ParseResult) => void;
   onError: (error: string) => void;
 };
-
-const WEBVIEW_LOAD_TIMEOUT = 20000;
-const PARSE_TIMEOUT = 15000;
 
 export default function ArticleParser({ html, onParsed, onError }: Props) {
   const { t } = useLanguage();
@@ -37,21 +44,21 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
     }
   };
 
-  const handleInternalError = (msg: string) => {
+  const handleInternalError = useCallback((msg: string) => {
     if (isFinished.current) return;
     isFinished.current = true;
     clearTimer();
     onErrorRef.current(msg);
-  };
+  }, []);
 
   useEffect(() => {
     // Budget for WebView to load the page
     timeoutRef.current = setTimeout(() => {
       handleInternalError(t.timeout);
-    }, WEBVIEW_LOAD_TIMEOUT);
+    }, TIMEOUTS.WEBVIEW_LOAD);
 
     return clearTimer;
-  }, []);
+  }, [handleInternalError, t.timeout]);
 
   const source = useMemo(() => ({ html }), [html]);
 
@@ -73,7 +80,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
         clearTimer();
         timeoutRef.current = setTimeout(() => {
           handleInternalError(t.timeout);
-        }, PARSE_TIMEOUT);
+        }, TIMEOUTS.PARSER_EXECUTION);
       }}
       onError={(syntheticEvent) => {
         handleInternalError(syntheticEvent.nativeEvent.description ?? t.pageLoadError);
@@ -82,7 +89,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
         if (isFinished.current) return;
         clearTimer();
         try {
-          const data = JSON.parse(event.nativeEvent.data);
+          const data = JSON.parse(event.nativeEvent.data) as ParserMessageData;
           if (data.success) {
             isFinished.current = true;
             onParsedRef.current({
@@ -94,7 +101,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
           } else {
             handleInternalError(data.error ?? t.parseError);
           }
-        } catch (e) {
+        } catch {
           handleInternalError(t.resultReadError);
         }
       }}

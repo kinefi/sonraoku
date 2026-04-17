@@ -265,7 +265,7 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - [X] Show only 20 recent articles in list and load more when list pulled down
 - [X] Add article tagging mechanism
 - [x] Storage usage monitoring and cache clearing in settings
-- [ ] Add git tag and versioning mechanism
+- [x] Add git tag and versioning mechanism (commit-and-tag-version)
 
 ### Phase 3 — Backend sync
 

@@ -5,13 +5,14 @@ import { eq, and, or, like, desc, asc, inArray, isNotNull, exists } from 'drizzl
 import { migrate } from 'drizzle-orm/expo-sqlite/migrator';
 import migrations from '../drizzle/migrations';
 import * as schema from './schema';
+import { DATABASE_NAME } from './constants';
 
 // Re-export for convenience in other files
 export * from './schema';
 
 const { articles, highlights, tags, articleTags } = schema;
 
-const sqlite = SQLite.openDatabaseSync('sonraoku.db');
+const sqlite = SQLite.openDatabaseSync(DATABASE_NAME);
 export const db = drizzle(sqlite, { schema });
 
 export async function initDb(): Promise<void> {

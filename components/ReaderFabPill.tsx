@@ -1,9 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { sharedStyles, spacing, borderRadius } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
-import { FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/themeContext';
+import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/themeContext';
 import IconButton from './IconButton';
 import SegmentedControl from './SegmentedControl';
 import { useLanguage } from '../lib/languageContext';

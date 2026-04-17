@@ -3,16 +3,22 @@ import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent } from 'react
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../lib/themeContext';
 import { spacing, borderRadius } from '../lib/theme';
-import IconButton from './IconButton';
+import IconButton, { IconName } from './IconButton';
+
+type OptionObject<T> = { key: T; label?: string; icon?: IconName };
 
 type SegmentedControlProps<T> = {
-  options: readonly T[] | { key: T; label?: string; icon?: keyof typeof Ionicons.glyphMap }[];
+  options: readonly T[] | readonly OptionObject<T>[];
   value: T;
   onChange: (val: T) => void;
   getLabel?: (val: T) => string;
   accessibilityLabel?: string;
   size?: 'normal' | 'small';
 };
+
+function isOptionObject<T>(opt: T | OptionObject<T>): opt is OptionObject<T> {
+  return typeof opt === 'object' && opt !== null && 'key' in opt;
+}
 
 export default function SegmentedControl<T extends string>({ 
   options, 
@@ -26,8 +32,8 @@ export default function SegmentedControl<T extends string>({
   const [containerWidth, setContainerWidth] = useState(0);
   const translateX = useRef(new Animated.Value(0)).current;
 
-  const activeIndex = options.findIndex(opt => {
-    const key = typeof opt === 'string' ? opt : (opt as any).key;
+  const activeIndex = options.findIndex((opt: T | OptionObject<T>) => {
+    const key = isOptionObject(opt) ? opt.key : opt as T;
     return key === value;
   });
 
@@ -42,7 +48,7 @@ export default function SegmentedControl<T extends string>({
         speed: 12,
       }).start();
     }
-  }, [activeIndex, segmentWidth]);
+  }, [activeIndex, segmentWidth, translateX]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     setContainerWidth(e.nativeEvent.layout.width);
@@ -81,13 +87,13 @@ export default function SegmentedControl<T extends string>({
         />
       )}
       {options.map((opt) => {
-        const key = typeof opt === 'string' ? opt : (opt as any).key;
-        const optionObj = typeof opt === 'object' ? opt : {} as any;
+        const isObj = isOptionObject(opt);
+        const key = isObj ? opt.key : opt as T;
         const label = getLabel 
           ? getLabel(key) 
-          : (typeof opt === 'string' ? opt : optionObj.label);
+          : (isObj ? opt.label : String(opt));
           
-        const icon = optionObj.icon;
+        const icon = isObj ? opt.icon : undefined;
         const isActive = value === key;
 
         return (

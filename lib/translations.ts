@@ -89,6 +89,7 @@ const tr = {
   notAvailablePhase3: 'Faz 3\'te mevcut olacak',
   minFontSizeReached: 'Minimum yazı boyutu',
   maxFontSizeReached: 'Maksimum yazı boyutu',
+  internalSafetyTimeout: 'Dahili güvenlik zaman aşımı',
 };
 
 const en: typeof tr = {
@@ -175,6 +176,7 @@ const en: typeof tr = {
   notAvailablePhase3: 'Available in Phase 3',
   minFontSizeReached: 'Minimum font size',
   maxFontSizeReached: 'Maximum font size',
+  internalSafetyTimeout: 'Internal safety timeout',
 };
 
 export const translations: Record<Lang, typeof tr> = { tr, en };

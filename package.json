@@ -1,6 +1,6 @@
 {
   "name": "sonraoku",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "main": "index.ts",
   "license": "Apache-2.0",
   "repository": {
@@ -17,6 +17,7 @@
     "fix": "expo install --fix",
     "android": "expo start --android",
     "lint": "eslint .",
+    "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "doctor": "npx expo-doctor",
     "db:generate": "drizzle-kit generate",
@@ -25,7 +26,8 @@
     "build:android:local": "GRADLE_OPTS='-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true' eas build --platform android --local --profile preview",
     "build:apk": "eas build --platform android --profile preview",
     "build:all": "eas build --platform all --non-interactive",
-    "submit:android": "eas submit --platform android"
+    "submit:android": "eas submit --platform android",
+    "release": "commit-and-tag-version"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -63,6 +65,7 @@
     "@types/react": "~19.2.14",
     "babel-plugin-inline-import": "^3.0.0",
     "babel-preset-expo": "~55.0.0",
+    "commit-and-tag-version": "^12.5.0",
     "drizzle-kit": "^0.30.4",
     "eslint": "^9.39.4",
     "eslint-config-expo": "^55.0.0",

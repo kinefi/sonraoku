@@ -46,9 +46,11 @@ pnpm start          # start Metro, scan QR with Expo Go
 | `pnpm start` | Start Metro bundler |
 | `pnpm android` | Build and run on Android |
 | `pnpm lint` | Run ESLint |
+| `pnpm type-check` | Run TypeScript check |
 | `pnpm format` | Run Prettier |
 | `pnpm doctor` | Run expo-doctor |
 | `pnpm fix` | Fix Expo package version mismatches |
+| `pnpm release` | Bump version and generate changelog |
 
 ## Architecture
 
@@ -64,6 +66,17 @@ pnpm start          # start Metro, scan QR with Expo Go
 
 **No external parsing API.** Readability.js is bundled via a custom Metro transformer — no postinstall script, no generated files.
 
+## Versioning & Tags
+
+This project uses `commit-and-tag-version` for automated version management.
+
+1. Finalize and commit your changes.
+2. Run `pnpm release` to bump the version and create a git tag.
+3. Push your changes and tags to the remote repository:
+   ```bash
+   git push --follow-tags
+   ```
+
 ## Project Structure
 
 ```
@@ -78,4 +91,5 @@ types/            ambient TypeScript declarations
 
 - [x] Phase 1 — Offline core loop
 - [x] Phase 2 — Polish (image cache, swipe gestures, TTS, font size, i18n)
+- [x] Versioning & Tagging system
 - [ ] Phase 3 — FastAPI backend + JWT auth + delta sync

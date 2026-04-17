@@ -2,7 +2,7 @@ import React, { useRef, useMemo } from 'react';
 import { Text, StyleSheet, AccessibilityInfo } from 'react-native';
 import { sharedStyles, spacing, borderRadius } from '../lib/theme';
 import { useTheme } from '../lib/themeContext';
-// eslint-disable-next-line import/no-deprecated
+ 
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { queryClient } from '../lib/queryClient';
 import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '../lib/db';

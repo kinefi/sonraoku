@@ -1,12 +1,12 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useMemo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { sharedStyles, borderRadius, typography } from '../lib/theme';
 import { useTheme } from '../lib/themeContext';
-import IconButton from './IconButton';
+import IconButton, { IconName } from './IconButton';
 
 export type FabAction = {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: IconName;
   label?: string;
   renderContent?: () => ReactNode;
   onPress: () => void;
@@ -29,6 +29,36 @@ type Props = {
 
 export default function FabGroup({ actions, containerStyle, disableAbsolutePositioning }: Props) {
   const { colors } = useTheme();
+
+  const styles = useMemo(() => StyleSheet.create({
+    absoluteContainer: {
+      position: 'absolute',
+      right: 20,
+      bottom: 24,
+    },
+    container: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    base: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    fabBase: {
+      width: 56,
+      height: 56,
+      borderRadius: borderRadius.pill,
+      ...sharedStyles(colors).floating,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    label: {
+      fontSize: 20,
+      fontWeight: typography.weights.bold,
+    },
+  }), [colors]);
+
   const visibleActions = actions.filter((a) => a.visible !== false);
 
   if (visibleActions.length === 0) return null;
@@ -64,32 +94,3 @@ export default function FabGroup({ actions, containerStyle, disableAbsolutePosit
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  absoluteContainer: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-  },
-  container: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  base: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabBase: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.pill,
-    ...sharedStyles.floating,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  label: {
-    fontSize: 20,
-    fontWeight: typography.weights.bold,
-  },
-});

@@ -15,7 +15,9 @@ import {
 } from './db';
 import { queryClient } from './queryClient';
 import { ParseQueueContext } from './parseQueue';
-import { fetchRawHtml } from './utils';
+import { fetchRawHtml, buildParserHtml, stripTags } from './utils';
+import { ReaderMessage } from '../components/ReaderView';
+import { TIMEOUTS } from './constants';
 
 export function useSettings() {
   const { t } = useLanguage();
@@ -109,8 +111,7 @@ export function useArticleSpeech(htmlContent: string | null, lang: string | null
 
     if (!htmlContent) return;
 
-    // Strip HTML tags and normalize whitespace
-    const plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const plainText = stripTags(htmlContent);
     if (!plainText) return;
 
     setIsSpeaking(true);
@@ -135,22 +136,26 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
   const { t } = useLanguage();
   const { addToQueue } = useContext(ParseQueueContext);
   const [isFetching, setIsFetching] = useState(false);
-  const [fetchStatus, setFetchStatus] = useState<string | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error' | null>(null);
 
   const handleFetchAgain = useCallback(async () => {
     if (!articleId || !url) return;
     setIsFetching(true);
-    setFetchStatus(t.loading);
+    setFetchStatus('fetching');
     try {
       const html = await fetchRawHtml(url);
-      addToQueue({ id: articleId, url, html, retries: 0 });
-      setFetchStatus(t.downloadSuccess);
+      addToQueue({ id: articleId, url, html: buildParserHtml(html, url, {
+        timeout: t.internalSafetyTimeout,
+        noContent: t.noContent,
+        unknownError: t.parseError,
+      }), retries: 0 });
+      setFetchStatus('success');
     } catch (e) {
-      setFetchStatus(t.downloadError);
+      setFetchStatus('error');
       console.error(e);
     } finally {
       setIsFetching(false);
-      setTimeout(() => setFetchStatus(null), 3000);
+      setTimeout(() => setFetchStatus(null), TIMEOUTS.STATUS_MESSAGE_RESET);
     }
   }, [articleId, url, t, addToQueue]);
 
@@ -164,7 +169,7 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     } catch (e) {
       console.error(e);
     }
-  }, [url, title]);
+  }, [url, title, t.appName]);
 
   const handleAddTag = useCallback(async (tagName: string) => {
     if (!articleId || !tagName.trim()) return;
@@ -178,7 +183,7 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
   }, [articleId]);
 
-  const handleReaderMessage = useCallback(async (msg: any) => {
+  const handleReaderMessage = useCallback(async (msg: ReaderMessage) => {
     if (!articleId) return;
     if (msg.type === 'highlight') {
       await insertHighlight(msg.id, articleId, msg.text, msg.contextBefore, msg.contextAfter);

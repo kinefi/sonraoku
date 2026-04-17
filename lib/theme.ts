@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { ViewStyle, TextStyle } from 'react-native';
 
 // Available highlight colors
 export const HIGHLIGHT_COLORS = ['#FFE066', '#A8F0C0', '#A8C8F8', '#F8A8C8'] as const;
@@ -131,7 +131,18 @@ export const highContrastColors = {
   placeholder: '#555555',
 } as const;
 
-export const sharedStyles = (themeColors: typeof colors) => StyleSheet.create({
+export type ThemeColors = { [K in keyof typeof colors]: string };
+
+export type SharedStyles = {
+  container: ViewStyle;
+  header: ViewStyle;
+  headerTitle: TextStyle;
+  rowSpaceBetween: ViewStyle;
+  metaText: TextStyle;
+  floating: ViewStyle;
+};
+
+export const sharedStyles = (themeColors: ThemeColors): SharedStyles => ({
   container: {
     flex: 1,
     backgroundColor: themeColors.bgPage,

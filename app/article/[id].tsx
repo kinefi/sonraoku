@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   AccessibilityInfo,
@@ -17,6 +16,7 @@ import {
 } from '../../lib/db';
 import { sharedStyles } from '../../lib/theme';
 import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/themeContext';
+import { TIMEOUTS } from '../../lib/constants';
 import ReaderView from '../../components/ReaderView';
 import { useLanguage } from '../../lib/languageContext';
 import ArticleMetaHeader from '../../components/ArticleMetaHeader';
@@ -49,11 +49,11 @@ export default function ArticleScreen() {
       bgColorAnim.setValue(0);
       Animated.timing(bgColorAnim, {
         toValue: 1,
-        duration: 500,
+        duration: TIMEOUTS.THEME_TRANSITION,
         useNativeDriver: false,
       }).start();
     }
-  }, [colors.white]);
+  }, [colors.white, bgColorAnim, currColor]);
 
   const animatedBgColor = bgColorAnim.interpolate({
     inputRange: [0, 1],
@@ -192,7 +192,7 @@ export default function ArticleScreen() {
           title={article.title}
           url={article.url}
           isFetching={isFetching}
-          fetchStatus={fetchStatus}
+          fetchStatus={fetchStatus || 'idle'}
           onFetchAgain={handleFetchAgain}
         />
       )}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
@@ -12,6 +12,7 @@ import {
   HIGHLIGHT_COLOR_KEY, 
   HIGHLIGHT_COLOR_DEFAULT,
   HIGHLIGHT_COLORS,
+  ThemeColors,
   FontFamily,
   FONT_FAMILY_KEY,
   FONT_FAMILY_DEFAULT
@@ -32,7 +33,7 @@ type ThemeContextType = {
   fontSize: number;
   setFontSize: (size: number) => void;
   resetToDefaults: () => void;
-  colors: typeof colors;
+  colors: ThemeColors;
   isDark: boolean;
 };
 
@@ -69,33 +70,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     loadSettings();
   }, []);
 
-  const setThemeMode = (mode: ThemeMode) => {
+  const setThemeMode = useCallback((mode: ThemeMode) => {
     setThemeModeState(mode);
     AsyncStorage.setItem(THEME_KEY, mode);
-  };
+  }, []);
 
-  const setHighlightColor = (color: HighlightColor) => {
+  const setHighlightColor = useCallback((color: HighlightColor) => {
     setHighlightColorState(color);
     AsyncStorage.setItem(HIGHLIGHT_COLOR_KEY, color);
-  };
+  }, []);
 
-  const setFontFamily = (font: FontFamily) => {
+  const setFontFamily = useCallback((font: FontFamily) => {
     setFontFamilyState(font);
     AsyncStorage.setItem(FONT_FAMILY_KEY, font);
-  };
+  }, []);
 
-  const setFontSize = (size: number) => {
+  const setFontSize = useCallback((size: number) => {
     const next = Math.max(FONT_SIZE_MIN, Math.min(FONT_SIZE_MAX, size));
     setFontSizeState(next);
     AsyncStorage.setItem(FONT_SIZE_KEY, String(next)).catch((e) => console.error(e));
-  };
+  }, []);
 
-  const resetToDefaults = () => {
+  const resetToDefaults = useCallback(() => {
     setThemeMode('system');
     setHighlightColor(HIGHLIGHT_COLOR_DEFAULT);
     setFontFamily(FONT_FAMILY_DEFAULT);
     setFontSize(FONT_SIZE_DEFAULT);
-  };
+  }, [setThemeMode, setHighlightColor, setFontFamily, setFontSize]);
 
   const isDark = themeMode === 'dark' || (themeMode === 'system' && systemColorScheme === 'dark');
 
@@ -119,7 +120,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     resetToDefaults,
     colors: activeColors,
     isDark,
-  }), [themeMode, highlightColor, fontFamily, fontSize, activeColors, isDark]);
+  }), [
+    themeMode,
+    setThemeMode,
+    highlightColor,
+    setHighlightColor,
+    fontFamily,
+    setFontFamily,
+    fontSize,
+    setFontSize,
+    resetToDefaults,
+    activeColors,
+    isDark
+  ]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

@@ -1,12 +1,12 @@
 import React from 'react';
-import { TouchableOpacity, TouchableOpacityProps, StyleSheet, Text, ActivityIndicator, View, TextStyle } from 'react-native';
+import { TouchableOpacity, TouchableOpacityProps, StyleSheet, Text, ActivityIndicator, View, TextStyle, ViewProps, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../lib/themeContext';
 import { spacing, borderRadius, typography } from '../lib/theme';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 
-export type IconButtonProps = TouchableOpacityProps & {
+export type IconButtonProps = TouchableOpacityProps & ViewProps & {
   name?: IconName;
   label?: string;
   size?: number;
@@ -14,7 +14,7 @@ export type IconButtonProps = TouchableOpacityProps & {
   variant?: 'ghost' | 'filled' | 'outlined';
   loading?: boolean;
   passive?: boolean;
-  labelStyle?: TextStyle;
+  labelStyle?: StyleProp<TextStyle>;
 };
 
 export default function IconButton({ name, label, size = 24, color, style, children, variant = 'ghost', loading, passive, labelStyle, ...props }: IconButtonProps) {

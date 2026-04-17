@@ -1,4 +1,5 @@
 import readabilitySource from '@mozilla/readability/Readability.js';
+import { TIMEOUTS } from './constants';
 
 function stripHeavyTags(html: string): string {
   return html
@@ -8,7 +9,13 @@ function stripHeavyTags(html: string): string {
     .replace(/<link\b[^>]*>/gi, '');
 }
 
-export function buildParserHtml(rawHtml: string, url: string): string {
+export type ParserErrorMessages = {
+  timeout: string;
+  noContent: string;
+  unknownError: string;
+};
+
+export function buildParserHtml(rawHtml: string, url: string, errors: ParserErrorMessages): string {
   const safeSource = readabilitySource.replace(/<\/script>/gi, '<\\/script>');
   const escapedHtml = JSON.stringify(stripHeavyTags(rawHtml));
   const escapedUrl = JSON.stringify(url);
@@ -20,7 +27,12 @@ export function buildParserHtml(rawHtml: string, url: string): string {
 <script>${safeSource}</script>
 <script>
 (function() {
+  var safetyTimer = setTimeout(function() {
+    sendMessage({ success: false, error: ${JSON.stringify(errors.timeout)} });
+  }, ${TIMEOUTS.WEBVIEW_LOAD});
+
   function sendMessage(message) {
+    clearTimeout(safetyTimer);
     var payload = JSON.stringify(message);
     function trySend() {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -36,7 +48,7 @@ export function buildParserHtml(rawHtml: string, url: string): string {
     baseTag.href = ${escapedUrl};
     if (doc.head) doc.head.insertBefore(baseTag, doc.head.firstChild);
     var article = new Readability(doc).parse();
-    if (!article) { sendMessage({ success: false, error: 'İçerik bulunamadı' }); return; }
+    if (!article) { sendMessage({ success: false, error: ${JSON.stringify(errors.noContent)} }); return; }
     sendMessage({
       success: true,
       title: article.title || '',
@@ -44,7 +56,7 @@ export function buildParserHtml(rawHtml: string, url: string): string {
       excerpt: article.excerpt || '',
       lang: doc.documentElement.lang || '',
     });
-  } catch (e) { sendMessage({ success: false, error: e.message || 'Bilinmeyen hata' }); }
+  } catch (e) { sendMessage({ success: false, error: e.message || ${JSON.stringify(errors.unknownError)} }); }
 })();
 </script>
 </body>

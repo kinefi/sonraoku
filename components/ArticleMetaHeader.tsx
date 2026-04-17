@@ -4,9 +4,8 @@ import { Article } from '../lib/db';
 import { useTheme } from '../lib/themeContext';
 import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
 import { getDomain, getReadTime } from '../lib/utils';
-import { interpolate } from '../lib/translations';
+import { interpolate, LANGUAGES } from '../lib/translations';
 import { useLanguage } from '../lib/languageContext';
-import { LANGUAGES } from '../lib/translations';
 import IconButton from './IconButton';
 
 type Props = {

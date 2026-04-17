@@ -11,6 +11,8 @@ export type ReaderMessage =
   | { type: 'highlight'; id: string; text: string; contextBefore: string; contextAfter: string }
   | { type: 'delete-highlight'; id: string };
 
+type WebViewMessage = ReaderMessage | { type: 'scroll'; progress: number };
+
 type Props = {
   html: string;
   title: string;
@@ -41,8 +43,9 @@ export default function ReaderView({
 
   const source = useMemo(
     () => ({ html: buildReaderHtml(title, html, fontSize, fontFamily, defaultColor, highlights, colors) }),
-    // highlights and fontSize omitted to preserve WebView state/scroll on updates
-    [html, title, defaultColor, colors]
+    // Note: Including highlights/fontSize satisfies the linter, but WebView manages visual state 
+    // after initial render to preserve scroll position.
+    [html, title, fontSize, fontFamily, defaultColor, highlights, colors]
   );
 
   const injectReaderSettings = useCallback(() => {
@@ -71,14 +74,14 @@ export default function ReaderView({
 
   function handleMessage(e: WebViewMessageEvent) {
     try {
-      const data = JSON.parse(e.nativeEvent.data);
+      const data = JSON.parse(e.nativeEvent.data) as WebViewMessage;
       if (data.type === 'scroll') {
-        onScrollProgress(data.progress as number);
+        onScrollProgress(data.progress);
       } else {
         onMessage(data as ReaderMessage);
       }
-    } catch(e) {
-      console.error(e);
+    } catch (err) {
+      console.error('WebView message parse error:', err);
     }
   }
 

@@ -46,9 +46,11 @@ pnpm start          # Metro'yu başlat, Expo Go ile QR tara
 | `pnpm start` | Metro bundler'ı başlat |
 | `pnpm android` | Android'de derle ve çalıştır |
 | `pnpm lint` | ESLint çalıştır |
+| `pnpm type-check` | TypeScript kontrolü çalıştır |
 | `pnpm format` | Prettier çalıştır |
 | `pnpm doctor` | expo-doctor çalıştır |
 | `pnpm fix` | Expo paket sürümü uyumsuzluklarını düzelt |
+| `pnpm release` | Versiyon yükselt ve changelog oluştur |
 
 ## Mimari
 
@@ -64,6 +66,17 @@ pnpm start          # Metro'yu başlat, Expo Go ile QR tara
 
 **Harici ayrıştırma API'si yok.** Readability.js, özel bir Metro transformer aracılığıyla uygulamaya dahil edilir — postinstall betiği veya üretilen dosya yoktur.
 
+## Versiyonlama ve Etiketleme
+
+Bu proje, otomatik versiyon yönetimi için `commit-and-tag-version` kullanır.
+
+1. Değişikliklerinizi tamamlayın ve commit edin.
+2. Versiyonu yükseltmek ve git etiketi oluşturmak için `pnpm release` çalıştırın.
+3. Değişiklikleri ve etiketleri uzak sunucuya gönderin:
+   ```bash
+   git push --follow-tags
+   ```
+
 ## Proje Yapısı
 
 ```
@@ -78,4 +91,5 @@ types/            ambient TypeScript bildirimleri
 
 - [x] Faz 1 — Çevrimdışı çekirdek döngü
 - [x] Faz 2 — Geliştirmeler (görsel önbellek, kaydırma hareketleri, sesli okuma, font boyutu, i18n)
+- [x] Versiyonlama ve Etiketleme sistemi
 - [ ] Faz 3 — FastAPI backend + JWT auth + delta sync

@@ -66,7 +66,15 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     // Fetch + queue in background — sheet is already closed
     fetchRawHtml(fullUrl)
       .then((rawHtml) => {
-        addToQueue({ id, html: buildParserHtml(rawHtml, fullUrl), url: fullUrl });
+        addToQueue({ 
+          id, 
+          html: buildParserHtml(rawHtml, fullUrl, {
+            timeout: t.internalSafetyTimeout,
+            noContent: t.noContent,
+            unknownError: t.parseError,
+          }), 
+          url: fullUrl 
+        });
         AccessibilityInfo.announceForAccessibility(t.downloadSuccess);
       })
       .catch((e) => { 

@@ -1,11 +1,11 @@
-import { colors as ThemeColors, FontFamily, spacing, borderRadius, typography } from './theme';
+import { ThemeColors, FontFamily, spacing, borderRadius, typography } from './theme';
 import { Highlight } from './db';
 
 /**
  * Generates CSS using the provided theme color palette.
  * Supports any theme (light, dark, sepia, etc.) passed via the colors object.
  */
-export function getReaderStyles(fontSize: number, fontFamily: FontFamily, defaultColor: string, colors: typeof ThemeColors): string {
+export function getReaderStyles(fontSize: number, fontFamily: FontFamily, defaultColor: string, colors: ThemeColors): string {
   const fontStack = fontFamily === 'serif' 
     ? 'serif, "Times New Roman"' 
     : '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -79,7 +79,7 @@ mark { border-radius: ${borderRadius.xs}px; padding: 0 1px; cursor: pointer; }
 `;
 }
 
-export function getReaderScript(highlightsJson: string, defaultColorJson: string, colors: typeof ThemeColors): string {
+export function getReaderScript(highlightsJson: string, defaultColorJson: string, colors: ThemeColors): string {
   return `
 (function() {
 var CONTEXT = 30;
@@ -310,7 +310,7 @@ export function getReaderSettingsScript(
   fontSize: number,
   fontFamily: FontFamily,
   highlights: Highlight[],
-  colors: typeof ThemeColors
+  colors: ThemeColors
 ): string {
   const hsJson = JSON.stringify(highlights);
   const fontStack = fontFamily === 'serif' ? 'serif, "Times New Roman"' : 'sans-serif, Arial';
@@ -336,7 +336,7 @@ export function buildReaderHtml(
   fontFamily: FontFamily,
   defaultColor: string,
   highlights: Highlight[],
-  colors: typeof ThemeColors
+  colors: ThemeColors
 ): string {
   const escapedTitle = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const highlightsJson = JSON.stringify(highlights);

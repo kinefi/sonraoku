@@ -17,7 +17,7 @@ import { useLanguage } from '../../lib/languageContext';
 import { useTheme } from '../../lib/themeContext';
 import { LANGUAGES, Lang } from '../../lib/translations';
 import { formatBytes } from '../../lib/utils';
-import { APP_VERSION, APP_README, GITHUB_URL } from '../../lib/constants';
+import { APP_VERSION, APP_README, GITHUB_URL, TIMEOUTS } from '../../lib/constants';
 import { useSettings } from '../../lib/hooks';
 import SegmentedControl from '../../components/SegmentedControl';
 import IconButton from '../../components/IconButton';
@@ -56,11 +56,11 @@ export default function SettingsScreen() {
       bgColorAnim.setValue(0);
       Animated.timing(bgColorAnim, {
         toValue: 1,
-        duration: 500,
+        duration: TIMEOUTS.THEME_TRANSITION,
         useNativeDriver: false,
       }).start();
     }
-  }, [colors.bgPage]);
+  }, [colors.bgPage, bgColorAnim, currColor]);
 
   const animatedBgColor = bgColorAnim.interpolate({
     inputRange: [0, 1],

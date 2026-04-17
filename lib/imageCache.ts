@@ -1,6 +1,5 @@
 import { Paths, File, Directory } from 'expo-file-system';
-
-const IMAGE_DOWNLOAD_TIMEOUT_MS = 15_000;
+import { IMAGE_CACHE_FOLDER, TIMEOUTS } from './constants';
 
 /**
  * Extracts all potential image URLs from HTML attributes like src, srcset, and data-src.
@@ -36,7 +35,7 @@ function urlToFilename(url: string, index: number): string {
 async function downloadWithTimeout(url: string, dest: File): Promise<{ uri: string }> {
   const download = File.downloadFileAsync(url, dest);
   const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Download timed out')), IMAGE_DOWNLOAD_TIMEOUT_MS)
+    setTimeout(() => reject(new Error('Download timed out')), TIMEOUTS.IMAGE_DOWNLOAD)
   );
   return Promise.race([download.then(() => ({ uri: dest.uri })), timeout]);
 }
@@ -54,9 +53,9 @@ export async function cacheArticleImages(
   if (urls.length === 0) return html;
 
   // Create article-specific directory: {Documents}/images/{articleId}/
-  const dir = new Directory(Paths.document, 'images', articleId);
+  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
   if (!dir.exists) {
-    dir.create();
+    await dir.create();
   }
 
   // Download all images in parallel (using Settled so one failure doesn't block others)
@@ -90,7 +89,7 @@ export async function cacheArticleImages(
  */
 async function getDirSize(dir: Directory): Promise<number> {
   let size = 0;
-  const items = dir.list();
+  const items = await dir.list();
   for (const item of items) {
     if (item instanceof File) {
       size += item.size;
@@ -102,21 +101,21 @@ async function getDirSize(dir: Directory): Promise<number> {
 }
 
 export async function deleteArticleImageCache(articleId: string): Promise<void> {
-  const dir = new Directory(Paths.document, 'images', articleId);
+  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
   if (dir.exists) {
-    dir.delete();
+    await dir.delete();
   }
 }
 
 export async function getTotalCacheSize(): Promise<number> {
-  const dir = new Directory(Paths.document, 'images');
+  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER);
   if (!dir.exists) return 0;
   return getDirSize(dir);
 }
 
 export async function clearAllImageCache(): Promise<void> {
-  const dir = new Directory(Paths.document, 'images');
+  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER);
   if (dir.exists) {
-    dir.delete();
+    await dir.delete();
   }
 }
