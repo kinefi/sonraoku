@@ -49,6 +49,7 @@ pnpm start          # Metro'yu başlat, Expo Go ile QR tara
 | `pnpm type-check` | TypeScript kontrolü çalıştır |
 | `pnpm format` | Prettier çalıştır |
 | `pnpm doctor` | expo-doctor çalıştır |
+| `pnpm audit` | Güvenlik zafiyetlerini kontrol et |
 | `pnpm fix` | Expo paket sürümü uyumsuzluklarını düzelt |
 | `pnpm release` | Versiyon yükselt ve changelog oluştur |
 

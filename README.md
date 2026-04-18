@@ -49,6 +49,7 @@ pnpm start          # start Metro, scan QR with Expo Go
 | `pnpm type-check` | Run TypeScript check |
 | `pnpm format` | Run Prettier |
 | `pnpm doctor` | Run expo-doctor |
+| `pnpm audit` | Check for security vulnerabilities |
 | `pnpm fix` | Fix Expo package version mismatches |
 | `pnpm release` | Bump version and generate changelog |
 
