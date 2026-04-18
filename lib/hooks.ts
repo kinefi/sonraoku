@@ -15,12 +15,14 @@ import {
 } from './db';
 import { queryClient } from './queryClient';
 import { ParseQueueContext } from './parseQueue';
+import { useToast } from './toastContext';
 import { fetchRawHtml, buildParserHtml, stripTags } from './utils';
 import { ReaderMessage } from '../components/ReaderView';
 import { TIMEOUTS } from './constants';
 
 export function useSettings() {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const { 
     fontSize, setFontSize, 
     highlightColor, setHighlightColor 
@@ -64,11 +66,11 @@ export function useSettings() {
         onPress: async () => {
           await clearAllImageCache();
           await updateCacheSize();
-          Alert.alert(t.cacheCleared);
+          showToast({ message: t.cacheCleared, type: 'success' });
         }
       },
     ]);
-  }, [t, updateCacheSize]);
+  }, [t, updateCacheSize, showToast]);
 
   return {
     fontSize,
@@ -134,6 +136,7 @@ export function useArticleSpeech(htmlContent: string | null, lang: string | null
 
 export function useArticleActions(articleId?: string, url?: string, title?: string | null) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const { addToQueue } = useContext(ParseQueueContext);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error' | null>(null);
@@ -175,7 +178,8 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     if (!articleId || !tagName.trim()) return;
     await addTagToArticle(articleId, tagName);
     queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
-  }, [articleId]);
+    showToast({ message: t.tagAdded, type: 'success' });
+  }, [articleId, t, showToast]);
 
   const handleRemoveTag = useCallback(async (tagName: string) => {
     if (!articleId) return;

@@ -24,6 +24,7 @@ import { useLanguage } from '../../lib/languageContext';
 import FabGroup from '../../components/FabGroup';
 import SearchBar from '../../components/SearchBar';
 import IconButton from '../../components/IconButton';
+import { useToast } from '../../lib/toastContext';
 
 type Filter = 'all' | 'unread' | 'offline' | 'archived';
 
@@ -34,6 +35,7 @@ export default function Index() {
   const [searchQuery, setSearchQuery] = useState('');
   const { t } = useLanguage();
   const { colors, isDark } = useTheme();
+  const { showToast } = useToast();
 
   const filters: { key: Filter; label: string }[] = [
     { key: 'all', label: t.all },
@@ -65,9 +67,10 @@ export default function Index() {
       { text: t.back, style: 'cancel' },
       {
         text: t.archiveAllRead,
-        onPress: () => {
-          archiveAllReadArticles();
+        onPress: async () => {
+          await archiveAllReadArticles();
           queryClient.invalidateQueries({ queryKey: ['articles'] });
+          showToast({ message: t.articlesArchived, type: 'success' });
         },
       },
     ]);

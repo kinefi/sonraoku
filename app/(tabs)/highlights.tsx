@@ -14,6 +14,7 @@ import FabGroup from '../../components/FabGroup';
 import SaveUrlSheet from '../../components/SaveUrlSheet';
 import SearchBar from '../../components/SearchBar';
 import IconButton from '../../components/IconButton';
+import { useToast } from '../../lib/toastContext';
 
 export default function HighlightsScreen() {
   const { t } = useLanguage();
@@ -23,6 +24,8 @@ export default function HighlightsScreen() {
     queryKey: ['highlights', 'all', searchQuery],
     queryFn: () => getAllHighlights(searchQuery),
   });
+
+  const { showToast } = useToast();
 
   const handleDelete = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -54,6 +57,7 @@ export default function HighlightsScreen() {
   const handleCopy = async (text: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await Clipboard.setStringAsync(text);
+    showToast({ message: t.copied, type: 'success' });
   };
 
   const { colors, isDark } = useTheme();

@@ -34,7 +34,7 @@ A personal "read later" app for Android. Save article URLs, read them fully offl
 - **nvm**: Version manager for Node.js. [nvm-sh/nvm](https://github.com/nvm-sh/nvm) (Linux/macOS) or [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
 - **Node.js**: Required 18+, recommended 22. Install via nvm: `nvm install 22`.
 - **pnpm**: Fast, disk space efficient package manager. Run `npm install -g pnpm` or `corepack enable`.
-- **Android Studio**: Required for Android SDK, platform tools, and emulators. Download from developer.android.com/studio.
+- **[Android Studio](https://developer.android.com/studio)**: Required for Android SDK, platform tools, and emulators..
 
 ```bash
 # 1. Clone the repository

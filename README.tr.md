@@ -34,7 +34,7 @@ Kişisel bir "sonra oku" Android uygulaması. Makale URL'lerini kaydedin, tamame
 - **nvm**: Node.js sürüm yöneticisi. [nvm-sh/nvm](https://github.com/nvm-sh/nvm) (Linux/macOS) veya [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
 - **Node.js**: 18+ gereklidir, 22 önerilir. nvm ile kurun: `nvm install 22`.
 - **pnpm**: Hızlı ve verimli paket yöneticisi. `npm install -g pnpm` veya `corepack enable` ile kurun.
-- **Android Studio**: Android SDK, platform araçları ve emülatörler için gereklidir. developer.android.com/studio adresinden indirin.
+- **[Android Studio](https://developer.android.com/studio)**: Android SDK, platform araçları ve emülatörler için gereklidir.
 
 ```bash
 # 1. Depoyu kopyalayın (clone)
