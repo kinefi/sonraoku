@@ -266,6 +266,8 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - [X] Add article tagging mechanism
 - [x] Storage usage monitoring and cache clearing in settings
 - [x] Add git tag and versioning mechanism (commit-and-tag-version)
+- [ ] Add notifications for relevant operations and errors
+- [ ] Favorite articles and listing them with a filter
 
 ### Phase 3 — Backend sync
 

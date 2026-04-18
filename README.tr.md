@@ -28,13 +28,27 @@ Kişisel bir "sonra oku" Android uygulaması. Makale URL'lerini kaydedin, tamame
 | TTS | expo-speech |
 | Hareketler | react-native-gesture-handler |
 
-## Başlangıç
+## Geliştirme Ortamı Kurulumu
 
-**Gereksinimler:** Node.js 18+, pnpm, Android cihaz veya emülatör
+### Önkoşullar ve Araçlar
+- **nvm**: Node.js sürüm yöneticisi. [nvm-sh/nvm](https://github.com/nvm-sh/nvm) (Linux/macOS) veya [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
+- **Node.js**: 18+ gereklidir, 22 önerilir. nvm ile kurun: `nvm install 22`.
+- **pnpm**: Hızlı ve verimli paket yöneticisi. `npm install -g pnpm` veya `corepack enable` ile kurun.
+- **Android Studio**: Android SDK, platform araçları ve emülatörler için gereklidir. developer.android.com/studio adresinden indirin.
 
 ```bash
+# 1. Depoyu kopyalayın (clone)
+git clone https://github.com/kinefi/sonraoku.git
+cd sonraoku
+
+# 2. Bağımlılıkları kurun
 pnpm install
-pnpm android        # bağlı cihaz/emülatörde derle ve çalıştır
+
+# 3. Yerel veritabanı taşıma dosyalarını (migrations) oluşturun
+pnpm db:generate
+
+# 4. Android cihazda veya emülatörde çalıştırın
+pnpm android
 # veya
 pnpm start          # Metro'yu başlat, Expo Go ile QR tara
 ```

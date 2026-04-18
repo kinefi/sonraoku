@@ -18,6 +18,10 @@ export const db = drizzle(sqlite, { schema });
 export async function initDb(): Promise<void> {
   // Enable foreign key constraints
   sqlite.execSync('PRAGMA foreign_keys = ON;');
+  
+  // Enable Write-Ahead Logging (WAL) mode. 
+  // This is critical for offline-first apps to allow reading while the background parser writes content.
+  sqlite.execSync('PRAGMA journal_mode = WAL;');
 
   try {
     // WORKAROUND: Pre-emptively create the Drizzle migration metadata table using native driver.
@@ -34,6 +38,7 @@ export async function initDb(): Promise<void> {
 
     // Use the imported migrations object for Expo runtime stability
     await migrate(db as any, migrations);
+    console.log('Database initialized and migrations applied.');
   } catch (e) {
     console.error('Database migration failed:', e);
     throw e;

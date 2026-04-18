@@ -28,13 +28,27 @@ A personal "read later" app for Android. Save article URLs, read them fully offl
 | TTS | expo-speech |
 | Gestures | react-native-gesture-handler |
 
-## Getting Started
+## Development Environment Setup
 
-**Prerequisites:** Node.js 18+, pnpm, Android device or emulator
+### Prerequisites & Tools
+- **nvm**: Version manager for Node.js. [nvm-sh/nvm](https://github.com/nvm-sh/nvm) (Linux/macOS) or [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows).
+- **Node.js**: Required 18+, recommended 22. Install via nvm: `nvm install 22`.
+- **pnpm**: Fast, disk space efficient package manager. Run `npm install -g pnpm` or `corepack enable`.
+- **Android Studio**: Required for Android SDK, platform tools, and emulators. Download from developer.android.com/studio.
 
 ```bash
+# 1. Clone the repository
+git clone https://github.com/kinefi/sonraoku.git
+cd sonraoku
+
+# 2. Install dependencies
 pnpm install
-pnpm android        # build and run on connected device/emulator
+
+# 3. Generate local database migrations
+pnpm db:generate
+
+# 4. Run on Android device or emulator
+pnpm android
 # or
 pnpm start          # start Metro, scan QR with Expo Go
 ```

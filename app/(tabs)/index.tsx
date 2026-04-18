@@ -141,15 +141,16 @@ export default function Index() {
     },
     list: {
       paddingTop: spacing.sm,
-      paddingBottom: 80,
+      paddingBottom: 100, // Increased to give the FAB group more breathing room
     },
     emptyList: {
-      flex: 1,
+      flexGrow: 1,
     },
     empty: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingBottom: 100, // Ensure FAB doesn't cover the "No articles" hint
       paddingTop: 80,
     },
     emptyText: {
@@ -248,7 +249,7 @@ export default function Index() {
           },
           {
             icon: 'add',
-            iconSize: 30,
+            iconSize: 24, // Standard 24px size usually provides the best optical balance for "plus" icons
             onPress: () => setShowSheet(true),
             haptic: Haptics.ImpactFeedbackStyle.Light,
             variant: 'filled',

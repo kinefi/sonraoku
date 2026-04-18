@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -15,13 +15,16 @@ const MAX_PARSE_RETRIES = 2;
 
 export default function RootLayout() {
   const [parseQueue, setParseQueue] = useState<ParseQueueItem[]>([]);
+  const [isDbReady, setIsDbReady] = useState(false);
 
   useEffect(() => {
     const setup = async () => {
       try {
         await initDb();
+        setIsDbReady(true);
       } catch (e) {
         console.error('Database initialization failed:', e);
+        setIsDbReady(true); // Proceed anyway to show error states instead of hanging
       }
     };
     setup();
@@ -71,6 +74,14 @@ export default function RootLayout() {
   // Memoize context to prevent full app re-renders when layout re-renders
   const queueContextValue = useMemo(() => ({ addToQueue }), [addToQueue]);
 
+  if (!isDbReady) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#534AB7" />
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
@@ -99,4 +110,9 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
