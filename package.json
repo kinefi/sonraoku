@@ -23,7 +23,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "build:android": "eas build --platform android --non-interactive",
-    "build:android:local": "GRADLE_OPTS='-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true' eas build --platform android --local --profile preview",
+    "build:android:local": "GRADLE_OPTS='-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true' eas build --platform android --local --profile production",
     "build:apk": "eas build --platform android --profile preview",
     "build:all": "eas build --platform all --non-interactive",
     "submit:android": "eas submit --platform android",
