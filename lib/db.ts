@@ -94,6 +94,9 @@ export async function getArticles(
     // Base filter logic
     if (filter === 'archived') {
       clauses.push(eq(articles.is_archived, 1));
+    } else if (filter === 'favorites') {
+      clauses.push(eq(articles.is_archived, 0));
+      clauses.push(eq(articles.is_favorite, 1));
     } else {
       clauses.push(eq(articles.is_archived, 0));
       if (filter === 'unread') clauses.push(eq(articles.is_read, 0));
@@ -152,6 +155,13 @@ export async function markArticleUnread(id: string): Promise<void> {
 
 export async function archiveArticle(id: string): Promise<void> {
   await db.update(articles).set({ is_archived: 1, updated_at: Date.now() }).where(eq(articles.id, id));
+}
+
+export async function toggleFavoriteArticle(id: string, isFavorite: boolean): Promise<void> {
+  await db.update(articles).set({ 
+    is_favorite: isFavorite ? 1 : 0, 
+    updated_at: Date.now() 
+  }).where(eq(articles.id, id));
 }
 
 export async function archiveAllReadArticles(): Promise<void> {

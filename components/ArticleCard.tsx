@@ -68,7 +68,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       textTransform: 'lowercase',
       color: colors.textMuted,
     },
-    leftGroup: {
+    rightGroup: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.xs + 2,
@@ -84,6 +84,15 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       height: spacing.sm,
       borderRadius: borderRadius.sm,
       backgroundColor: colors.primary,
+    },
+    favoriteDot: {
+      width: spacing.sm,
+      height: spacing.sm,
+      borderRadius: borderRadius.sm,
+      backgroundColor: colors.error,
+    },
+    inactiveDot: {
+      backgroundColor: colors.border,
     },
     title: {
       fontSize: 16,
@@ -105,6 +114,15 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
     },
   }), [colors, isDark, themeMode]);
 
+  // Construct a comprehensive accessibility label for the card
+  const cardAccessibilityLabel = [
+    article.title ?? t.loading,
+    getDomain(article.url),
+    isRead ? t.markAsRead : t.unread,
+    article.is_favorite === 1 ? t.favorites : null,
+    isOffline ? t.offlineLabel : null,
+  ].filter(Boolean).join('. ');
+
   return (
     <TouchableOpacity
       style={[
@@ -113,7 +131,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
         isRead && !selectionMode && styles.cardRead,
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`${article.title}. ${getDomain(article.url)}. ${isRead ? t.markAsRead : t.markAsUnread}`}
+      accessibilityLabel={cardAccessibilityLabel}
       accessibilityHint={!selectionMode ? t.swipeHint : undefined}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -132,11 +150,24 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
         )}
         <View style={{ flex: 1 }}>
           <View style={styles.topRow}>
-            <View style={styles.leftGroup}>
-              {!isRead && <View style={styles.unreadBadge} />}
-              <Text style={styles.domain}>{getDomain(article.url)}</Text>
+            <Text style={styles.domain}>{getDomain(article.url)}</Text>
+            <View style={styles.rightGroup}>
+              <View 
+                style={[styles.unreadBadge, isRead && styles.inactiveDot]} 
+                accessible={true} 
+                accessibilityLabel={isRead ? t.markAsRead : t.unread} 
+              />
+              <View 
+                style={[styles.favoriteDot, article.is_favorite !== 1 && styles.inactiveDot]} 
+                accessible={true} 
+                accessibilityLabel={article.is_favorite === 1 ? t.favorites : t.unfavorited} 
+              />
+              <View 
+                style={[styles.offlineDot, !isOffline && styles.inactiveDot]} 
+                accessible={true} 
+                accessibilityLabel={isOffline ? t.offlineLabel : t.offline} 
+              />
             </View>
-            {isOffline && <View style={styles.offlineDot} />}
           </View>
 
           <Text style={styles.title} numberOfLines={2}>

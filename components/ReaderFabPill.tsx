@@ -1,16 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { sharedStyles, spacing, borderRadius } from '../lib/theme';
+import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
 import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/themeContext';
 import IconButton from './IconButton';
-import SegmentedControl from './SegmentedControl';
 import { useLanguage } from '../lib/languageContext';
 
 type Props = {
   onBack: () => void;
-  fontSize: number;
-  onFontSizeChange: (delta: number) => void;
   onToggleHighlights: () => void;
   onToggleTags: () => void;
   isSpeaking: boolean;
@@ -19,12 +16,25 @@ type Props = {
   isFetching?: boolean;
   onRefresh?: () => void;
   hasContent: boolean;
+  isFavorite: boolean;
+  onFavoriteToggle: () => void;
 };
+
+const VerticalDivider = ({ color }: { color: string }) => (
+  <View
+    style={{
+      width: 1,
+      height: 24,
+      backgroundColor: color,
+      marginHorizontal: 0,
+      opacity: 0.3,
+      alignSelf: 'center'
+    }}
+  />
+);
 
 export default function ReaderFabPill({
   onBack,
-  fontSize,
-  onFontSizeChange,
   onToggleHighlights,
   onToggleTags,
   isSpeaking,
@@ -33,8 +43,10 @@ export default function ReaderFabPill({
   isFetching,
   onRefresh,
   hasContent,
+  isFavorite,
+  onFavoriteToggle,
 }: Props) {
-  const { colors, themeMode, setThemeMode } = useTheme();
+  const { colors } = useTheme();
   const { t } = useLanguage();
 
   const styles = useMemo(() => {
@@ -49,18 +61,26 @@ export default function ReaderFabPill({
       },
       fabPill: {
         flexDirection: 'row',
-        gap: spacing.xs,
+        alignItems: 'center',
         borderRadius: borderRadius.pill,
-        paddingHorizontal: spacing.md - 2,
-        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: spacing.xs,
         borderWidth: 1,
         backgroundColor: colors.bgMuted,
+        maxWidth: '94%',
+        overflow: 'hidden',
         ...baseStyles.floating,
+      },
+      scrollContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.sm,
+        gap: spacing.xs,
       },
       fabActionBtn: {
         width: 44,
         height: 40,
-        borderRadius: borderRadius.xxl,
+        borderRadius: borderRadius.xl,
         alignItems: 'center',
         justifyContent: 'center',
       },
@@ -70,90 +90,78 @@ export default function ReaderFabPill({
   return (
     <View style={styles.fabActionRow}>
       <View style={styles.fabPill}>
-        <IconButton
-          name="arrow-back"
-          onPress={onBack}
-          style={styles.fabActionBtn}
-        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <IconButton
+            name="arrow-back"
+            onPress={onBack}
+            style={styles.fabActionBtn}
+          />
 
-        <SegmentedControl
-          size="small"
-          options={[
-            { key: 'system', icon: 'settings-outline' },
-            { key: 'light', icon: 'sunny-outline' },
-            { key: 'dark', icon: 'moon-outline' },
-            { key: 'sepia', icon: 'color-filter-outline' },
-            { key: 'high-contrast', icon: 'contrast-outline' },
-          ]}
-          value={themeMode}
-          onChange={setThemeMode}
-          accessibilityLabel={t.theme}
-        />
+          <VerticalDivider color={colors.border} />
 
-        {hasContent && (
-          <>
-            <IconButton
-              label="A−"
-              onPress={() => {
-                Haptics.selectionAsync();
-                onFontSizeChange(-2);
-              }}
-              disabled={fontSize <= FONT_SIZE_MIN}
-              style={styles.fabActionBtn}
-            />
-            <IconButton
-              label="A+"
-              onPress={() => {
-                Haptics.selectionAsync();
-                onFontSizeChange(2);
-              }}
-              disabled={fontSize >= FONT_SIZE_MAX}
-              style={styles.fabActionBtn}
-            />
-            <IconButton
-              name="bookmarks-outline"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onToggleHighlights();
-              }}
-              style={styles.fabActionBtn}
-            />
-            <IconButton
-              name="pricetag-outline"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onToggleTags();
-              }}
-              style={styles.fabActionBtn}
-            />
-            <IconButton
-              name="refresh-outline"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onRefresh?.();
-              }}
-              loading={isFetching}
-              style={styles.fabActionBtn}
-            />
-            <IconButton
-              name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onToggleSpeech();
-              }}
-              color={isSpeaking ? colors.white : colors.primary}
-              style={[
-                styles.fabActionBtn,
-                isSpeaking && { backgroundColor: colors.primary }
-              ]}
-            />
-            <IconButton
-              name="share-social-outline"
-              onPress={onShare}
-              style={styles.fabActionBtn}
-            />
-          </>
-        )}
+          <IconButton
+            name="refresh-outline"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onRefresh?.();
+            }}
+            loading={isFetching}
+            style={styles.fabActionBtn}
+          />
+
+          {hasContent && (
+            <>
+              <VerticalDivider color={colors.border} />
+
+              <IconButton
+                name={isFavorite ? 'heart' : 'heart-outline'}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onFavoriteToggle?.();
+                }}
+                color={isFavorite ? colors.primary : colors.textSecondary}
+                style={styles.fabActionBtn}
+                accessibilityLabel={isFavorite ? t.unfavorited : t.favorited}
+              />
+              <IconButton
+                name="bookmarks-outline"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onToggleHighlights();
+                }}
+                style={styles.fabActionBtn}
+              />
+              <IconButton
+                name="pricetag-outline"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onToggleTags();
+                }}
+                style={styles.fabActionBtn}
+              />
+
+              <VerticalDivider color={colors.border} />
+
+              <IconButton
+                name={isSpeaking ? 'stop-circle' : 'volume-high-outline'}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onToggleSpeech();
+                }}
+                color={isSpeaking ? colors.white : colors.primary}
+                style={[
+                  styles.fabActionBtn,
+                  isSpeaking && { backgroundColor: colors.primary }
+                ]}
+              />
+              <IconButton
+                name="share-social-outline"
+                onPress={onShare}
+                style={styles.fabActionBtn}
+              />
+            </>
+          )}
+        </ScrollView>
       </View>
     </View>
   );

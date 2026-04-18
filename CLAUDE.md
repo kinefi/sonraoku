@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS articles (
   html_content TEXT,
   lang TEXT,
   is_read INTEGER DEFAULT 0,
+  is_favorite INTEGER DEFAULT 0,
   is_archived INTEGER DEFAULT 0,
   saved_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
@@ -217,18 +218,18 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 ### List screen
 
 - Article cards show: domain, title, excerpt, time saved, read time estimate, unread dot
-- Green dot on card = offline-ready (content + images cached)
-- Purple dot = unread
-- Read articles are dimmed (opacity 0.65)
+- Persistent status dots on the right: Unread (purple), Favorite (red), Offline (green).
+- Inactive/off states for dots are shown in gray (`colors.border`).
+- Read articles are dimmed (opacity 0.65).
 - Filter chips: Tümü / Okunmamış / Çevrimdışı / Arşivlenmiş (labels from `t.*`)
+- Filter chips are in a horizontal scrollable row to prevent overflow.
 - FAB (purple +) opens SaveUrlSheet bottom sheet
 
 ### Reader screen
 
 - Thin purple progress bar at top tracks scroll position
-- Back button returns to list
-- Domain + çevrimdışı indicator below nav
-- Font size controls (A− / A+) in bottom bar, disabled at min/max limits (12–36pt)
+- Back button, Refresh, Favorite, Highlights, Tags, Speech, and Share actions are in a horizontal scrolling bottom "pill".
+- Reading progress percentage and Font size controls (A− / A+) are in a dedicated vertical floating FAB on the right side.
 - Font size persisted to AsyncStorage key `'reader_font_size'`; default 16pt
 - Read aloud (expo-speech) splits text into ≤4000 char chunks; uses article `lang` for TTS language, falls back to `'tr'`
 - Swipe actions include accessibility hints and announcements for screen reader users.
@@ -266,8 +267,8 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - [X] Add article tagging mechanism
 - [x] Storage usage monitoring and cache clearing in settings
 - [x] Add git tag and versioning mechanism (commit-and-tag-version)
-- [ ] Add notifications for relevant operations and errors
-- [ ] Favorite articles and listing them with a filter
+- [X] Add notifications for relevant operations and errors
+- [X] Favorite articles and listing them with a filter
 
 ### Phase 3 — Backend sync
 

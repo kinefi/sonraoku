@@ -4,7 +4,9 @@ import {
   StyleSheet,
   Animated,
   AccessibilityInfo,
+  Text,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -14,7 +16,7 @@ import {
   getArticleById, markArticleRead,
   getHighlightsByArticle, getTagsForArticle,
 } from '../../lib/db';
-import { sharedStyles } from '../../lib/theme';
+import { sharedStyles, spacing, borderRadius, typography } from '../../lib/theme';
 import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/themeContext';
 import { TIMEOUTS } from '../../lib/constants';
 import ReaderView from '../../components/ReaderView';
@@ -24,6 +26,7 @@ import HighlightsModal from '../../components/HighlightsModal';
 import TagsModal from '../../components/TagsModal';
 import ArticleFallback from '../../components/ArticleFallback';
 import ReaderFabPill from '../../components/ReaderFabPill';
+import IconButton from '../../components/IconButton';
 
 export default function ArticleScreen() {
   const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
@@ -32,6 +35,7 @@ export default function ArticleScreen() {
   const { isDark } = useTheme();
   const scrollProgress = useRef(new Animated.Value(0)).current;
   const [readerHeight, setReaderHeight] = useState(0);
+  const [currentProgress, setCurrentProgress] = useState(0);
   const [showHighlights, setShowHighlights] = useState(false);
   const [showTags, setShowTags] = useState(false);
   const [newTag, setNewTag] = useState('');
@@ -95,6 +99,7 @@ export default function ArticleScreen() {
     handleShare,
     handleAddTag: runAddTag,
     handleRemoveTag,
+    handleToggleFavorite,
     handleReaderMessage,
   } = useArticleActions(article?.id, article?.url, article?.title);
 
@@ -122,6 +127,7 @@ export default function ArticleScreen() {
 
   const handleScrollProgress = useCallback((progress: number) => {
     scrollProgress.setValue(progress);
+    setCurrentProgress(progress);
   }, [scrollProgress]);
 
   const handleAddTag = useCallback(() => {
@@ -156,6 +162,31 @@ export default function ArticleScreen() {
       borderRadius: 2,
       backgroundColor: colors.primary,
       opacity: 0.45,
+    },
+    rightFab: {
+      position: 'absolute',
+      right: spacing.md,
+      bottom: 120, // Increased to clear the main bottom pill
+      backgroundColor: colors.bgMuted,
+      borderRadius: borderRadius.pill,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+      gap: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      width: 44,
+      ...sharedStyles(colors).floating,
+    },
+    progressText: {
+      fontSize: 10,
+      fontWeight: typography.weights.bold,
+      color: colors.primary,
+      textAlign: 'center',
+      marginBottom: spacing.xs,
+    },
+    sideActionBtn: {
+      width: 36,
+      height: 36,
     },
   }), [colors, isDark]);
 
@@ -197,10 +228,34 @@ export default function ArticleScreen() {
         />
       )}
 
+      {article.html_content && (
+        <View style={styles.rightFab}>
+          <Text style={styles.progressText}>{Math.round(currentProgress * 100)}%</Text>
+          <IconButton
+            label="A+"
+            onPress={() => {
+              Haptics.selectionAsync();
+              changeFontSize(2);
+            }}
+            disabled={fontSize >= FONT_SIZE_MAX}
+            size={16}
+            style={styles.sideActionBtn}
+          />
+          <IconButton
+            label="A−"
+            onPress={() => {
+              Haptics.selectionAsync();
+              changeFontSize(-2);
+            }}
+            disabled={fontSize <= FONT_SIZE_MIN}
+            size={16}
+            style={styles.sideActionBtn}
+          />
+        </View>
+      )}
+
       <ReaderFabPill
         onBack={() => router.back()}
-        fontSize={fontSize}
-        onFontSizeChange={changeFontSize}
         onToggleHighlights={() => setShowHighlights(true)}
         onToggleTags={() => setShowTags(true)}
         isSpeaking={isSpeaking}
@@ -209,6 +264,8 @@ export default function ArticleScreen() {
         isFetching={isFetching}
         onRefresh={handleFetchAgain}
         hasContent={!!article.html_content}
+        isFavorite={!!article.is_favorite}
+        onFavoriteToggle={() => handleToggleFavorite(!article.is_favorite)}
       />
 
       {showHighlights && (

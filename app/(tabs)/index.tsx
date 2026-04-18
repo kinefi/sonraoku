@@ -7,6 +7,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,7 +27,7 @@ import SearchBar from '../../components/SearchBar';
 import IconButton from '../../components/IconButton';
 import { useToast } from '../../lib/toastContext';
 
-type Filter = 'all' | 'unread' | 'offline' | 'archived';
+type Filter = 'all' | 'unread' | 'favorites' | 'offline' | 'archived';
 
 export default function Index() {
   const { tag } = useLocalSearchParams<{ tag?: string }>();
@@ -40,6 +41,7 @@ export default function Index() {
   const filters: { key: Filter; label: string }[] = [
     { key: 'all', label: t.all },
     { key: 'unread', label: t.unread },
+    { key: 'favorites', label: t.favorites },
     { key: 'offline', label: t.offline },
     { key: 'archived', label: t.archived },
   ];
@@ -118,16 +120,12 @@ export default function Index() {
     filterRow: {
       flexDirection: 'row',
       paddingHorizontal: spacing.lg,
-      paddingBottom: spacing.lg,
-      paddingTop: spacing.lg,
-      backgroundColor: colors.white,
-      gap: spacing.sm,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      paddingVertical: spacing.lg,
+      gap: spacing.xs + 2,
     },
     chip: {
-      paddingHorizontal: spacing.md + 2,
-      paddingVertical: spacing.sm - 2,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs + 2,
       borderRadius: borderRadius.xxl,
       backgroundColor: colors.bgMuted,
     },
@@ -199,19 +197,25 @@ export default function Index() {
       )}
 
       {/* Filter chips */}
-      <View style={styles.filterRow}>
-        {filters.map(({ key, label }) => (
-          <IconButton
-            key={key}
-            label={label}
-            variant={filter === key ? 'filled' : 'ghost'}
-            onPress={() => setFilter(key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: filter === key }}
-            style={[styles.chip, filter === key && styles.chipActive]}
-            labelStyle={[styles.chipText, filter === key && styles.chipTextActive]}
-          />
-        ))}
+      <View style={{ backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterRow}
+        >
+          {filters.map(({ key, label }) => (
+            <IconButton
+              key={key}
+              label={label}
+              variant={filter === key ? 'filled' : 'ghost'}
+              onPress={() => setFilter(key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: filter === key }}
+              style={[styles.chip, filter === key && styles.chipActive]}
+              labelStyle={[styles.chipText, filter === key && styles.chipTextActive]}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList

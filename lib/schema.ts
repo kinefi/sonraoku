@@ -8,6 +8,7 @@ export const articles = sqliteTable('articles', {
   html_content: text('html_content'),
   lang: text('lang'),
   is_read: integer('is_read').notNull().default(0),
+  is_favorite: integer('is_favorite').notNull().default(0),
   is_archived: integer('is_archived').notNull().default(0),
   saved_at: integer('saved_at').notNull(),
   updated_at: integer('updated_at').notNull(),
@@ -16,6 +17,7 @@ export const articles = sqliteTable('articles', {
   return {
     savedAtIndex: index('saved_at_idx').on(table.saved_at),
     statusIndex: index('status_idx').on(table.is_archived, table.is_read),
+    favoriteIndex: index('favorite_idx').on(table.is_archived, table.is_favorite),
   };
 });
 

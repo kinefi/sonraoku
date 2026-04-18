@@ -11,7 +11,8 @@ import {
 import { getTotalCacheSize, clearAllImageCache } from './imageCache';
 import { 
   addTagToArticle, removeTagFromArticle, 
-  insertHighlight, deleteHighlight 
+  insertHighlight, deleteHighlight,
+  toggleFavoriteArticle
 } from './db';
 import { queryClient } from './queryClient';
 import { ParseQueueContext } from './parseQueue';
@@ -187,6 +188,17 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
   }, [articleId]);
 
+  const handleToggleFavorite = useCallback(async (isFavorite: boolean) => {
+    if (!articleId) return;
+    await toggleFavoriteArticle(articleId, isFavorite);
+    queryClient.invalidateQueries({ queryKey: ['articles'] });
+    queryClient.invalidateQueries({ queryKey: ['article', articleId] });
+    showToast({ 
+      message: isFavorite ? t.favorited : t.unfavorited, 
+      type: 'success' 
+    });
+  }, [articleId, t, showToast]);
+
   const handleReaderMessage = useCallback(async (msg: ReaderMessage) => {
     if (!articleId) return;
     if (msg.type === 'highlight') {
@@ -205,6 +217,7 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     handleShare,
     handleAddTag,
     handleRemoveTag,
+    handleToggleFavorite,
     handleReaderMessage,
   };
 }
