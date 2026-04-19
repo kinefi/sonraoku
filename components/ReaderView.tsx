@@ -1,17 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, AccessibilityInfo } from 'react-native';
-import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { Highlight } from '../lib/db';
-import { FontFamily } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
-import { useLanguage } from '../lib/languageContext';
-import { buildReaderHtml, getReaderSettingsScript } from '../lib/readerAssets';
-
-export type ReaderMessage =
-  | { type: 'highlight'; id: string; text: string; contextBefore: string; contextAfter: string }
-  | { type: 'delete-highlight'; id: string };
-
-type WebViewMessage = ReaderMessage | { type: 'scroll'; progress: number };
+import React, { useMemo } from 'react';
+import { StyleSheet } from 'react-native';
+import { WebView } from 'react-native-webview';
+import { Highlight } from '@/lib/db';
+import { FontFamily, useTheme, sharedStyles } from '@/lib/theme';
+import { useReaderSelection } from '@/lib/reader';
+import { ReaderMessage } from '@/types/reader';
 
 type Props = {
   html: string;
@@ -23,6 +16,7 @@ type Props = {
   onMessage: (msg: ReaderMessage) => void;
   onScrollProgress: (progress: number) => void;
   scrollToHighlightId?: string | null;
+  initialProgress?: number;
 };
 
 export default function ReaderView({
@@ -35,73 +29,42 @@ export default function ReaderView({
   onMessage,
   onScrollProgress,
   scrollToHighlightId,
+  initialProgress,
 }: Props) {
   const { colors } = useTheme();
-  const { t } = useLanguage();
-  const webViewRef = useRef<WebView>(null);
-  const loaded = useRef(false);
 
-  const source = useMemo(
-    () => ({ html: buildReaderHtml(title, html, fontSize, fontFamily, defaultColor, highlights, colors) }),
-    // Note: Including highlights/fontSize satisfies the linter, but WebView manages visual state 
-    // after initial render to preserve scroll position.
-    [html, title, fontSize, fontFamily, defaultColor, highlights, colors]
-  );
+  const {
+    webViewRef,
+    source,
+    handleMessage,
+    onLoadEnd,
+    onLoadStart,
+  } = useReaderSelection({
+    html, title, fontSize, fontFamily, defaultColor, highlights, colors,
+    onMessage, onScrollProgress, scrollToHighlightId, initialProgress
+  });
 
-  const injectReaderSettings = useCallback(() => {
-    if (!webViewRef.current) return;
-    webViewRef.current.injectJavaScript(
-      getReaderSettingsScript(fontSize, fontFamily, highlights, colors)
-    );
-  }, [fontSize, fontFamily, highlights, colors]);
-
-  // Inject font or size changes without reloading the WebView
-  useEffect(() => {
-    if (!loaded.current) return;
-    injectReaderSettings();
-  }, [fontSize, fontFamily, injectReaderSettings]);
-
-  // Handle scrolling to a specific highlight
-  useEffect(() => {
-    if (scrollToHighlightId && loaded.current) {
-      webViewRef.current?.injectJavaScript(`window.scrollToHighlight('${scrollToHighlightId}'); true;`);
-      const highlight = highlights.find(h => h.id === scrollToHighlightId);
-      if (highlight) {
-        AccessibilityInfo.announceForAccessibility(`${t.highlightsTitle}: ${highlight.selected_text}`);
-      }
-    }
-  }, [scrollToHighlightId, highlights, t.highlightsTitle]);
-
-  function handleMessage(e: WebViewMessageEvent) {
-    try {
-      const data = JSON.parse(e.nativeEvent.data) as WebViewMessage;
-      if (data.type === 'scroll') {
-        onScrollProgress(data.progress);
-      } else {
-        onMessage(data as ReaderMessage);
-      }
-    } catch (err) {
-      console.error('WebView message parse error:', err);
-    }
-  }
-
+  const styles = useMemo(() => StyleSheet.create({
+    ...sharedStyles(colors),
+    webView: { flex: 1 },
+  }), [colors]);
   return (
     <WebView
       ref={webViewRef}
-      style={styles.webView}
       source={source}
       javaScriptEnabled
+      domStorageEnabled
+      allowFileAccess={true}
+      allowUniversalAccessFromFileURLs={true}
+      mixedContentMode="always"
+      style={styles.webView}
       originWhitelist={['*']}
       showsVerticalScrollIndicator={false}
-      onLoadEnd={() => {
-        loaded.current = true;
-        injectReaderSettings();
-      }}
+      overScrollMode="never"
+      textZoom={100}
+      onLoadEnd={onLoadEnd}
+      onLoadStart={onLoadStart}
       onMessage={handleMessage}
     />
   );
 }
-
-const styles = StyleSheet.create({
-  webView: { flex: 1 },
-});

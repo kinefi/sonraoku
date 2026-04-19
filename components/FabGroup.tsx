@@ -1,8 +1,7 @@
 import React, { ReactNode, useMemo } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { sharedStyles, borderRadius, typography } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
+import { sharedStyles, borderRadius, typography, useTheme } from '@/lib/theme';
 import IconButton, { IconName } from './IconButton';
 
 export type FabAction = {

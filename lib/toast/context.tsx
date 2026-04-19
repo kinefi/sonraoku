@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { useTheme } from './themeContext';
-import { borderRadius, spacing, typography, sharedStyles } from './theme';
-import IconButton from '../components/IconButton';
+import { Text, StyleSheet, Animated } from 'react-native';
+import { useTheme, borderRadius, spacing, typography, sharedStyles } from '@/lib/theme';
+import { IconButton } from '@/components';
 
 type ToastType = 'success' | 'error' | 'info';
 

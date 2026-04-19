@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
-import { useTheme } from '../lib/themeContext';
-import { useLanguage } from '../lib/languageContext';
+import { useTheme } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -15,7 +15,7 @@ export default function SearchBar({ value, onChangeText, placeholder, onClear }:
   const { colors } = useTheme();
   const { t } = useLanguage();
   return (
-    <View style={[styles.searchContainer, { backgroundColor: colors.white }]}>
+    <View style={[styles.searchContainer, { backgroundColor: 'transparent' }]}>
       <View style={[styles.searchBar, { backgroundColor: colors.bgMuted }]}>
         <IconButton name="search" size={18} color={colors.textMuted} style={styles.searchIcon} passive />
         <TextInput
@@ -34,7 +34,7 @@ export default function SearchBar({ value, onChangeText, placeholder, onClear }:
             size={18}
             color={colors.textMuted}
             onPress={onClear}
-            accessibilityLabel={t.cancel}
+            accessibilityLabel={t.common.cancel}
           />
         )}
       </View>

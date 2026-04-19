@@ -11,14 +11,11 @@ import {
   Platform,
 } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
-import { queryClient } from '../lib/queryClient';
-import { insertArticle } from '../lib/db';
-import { fetchRawHtml } from '../lib/utils';
-import { buildParserHtml } from '../lib/htmlBuilder';
-import { useParseQueue } from '../lib/parseQueue';
-import { useLanguage } from '../lib/languageContext';
-import { useTheme } from '../lib/themeContext';
+import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
+import { queryClient, buildParserHtml, useParseQueue } from '@/lib/reader';
+import { insertArticle } from '@/lib/db';
+import { fetchRawHtml } from '@/lib/utils';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -46,18 +43,18 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
     try {
       new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
     } catch {
-      setError(t.invalidUrl);
-      AccessibilityInfo.announceForAccessibility(t.invalidUrl);
+      setError(t.articles.invalidUrl);
+      AccessibilityInfo.announceForAccessibility(t.articles.invalidUrl);
       return;
     }
 
     const fullUrl = trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
     setError('');
     setLoading(true);
-    AccessibilityInfo.announceForAccessibility(t.loading);
+    AccessibilityInfo.announceForAccessibility(t.common.loading);
 
     const id = generateId();
-    insertArticle(id, fullUrl);
+    await insertArticle(id, fullUrl);
     queryClient.invalidateQueries({ queryKey: ['articles'] });
     setLoading(false);
     setUrl('');
@@ -69,17 +66,17 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
         addToQueue({ 
           id, 
           html: buildParserHtml(rawHtml, fullUrl, {
-            timeout: t.internalSafetyTimeout,
-            noContent: t.noContent,
-            unknownError: t.parseError,
+            timeout: t.errors.internalSafetyTimeout,
+            noContent: t.articles.noContent,
+            unknownError: t.errors.parseError,
           }), 
           url: fullUrl 
         });
-        AccessibilityInfo.announceForAccessibility(t.downloadSuccess);
+        AccessibilityInfo.announceForAccessibility(t.articles.downloadSuccess);
       })
       .catch((e) => { 
         console.error(e);
-        AccessibilityInfo.announceForAccessibility(t.downloadError);
+        AccessibilityInfo.announceForAccessibility(t.articles.downloadError);
       });
   }
 
@@ -100,7 +97,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       justifyContent: 'flex-end',
     },
     sheet: {
-      backgroundColor: colors.white,
+      backgroundColor: colors.bgPage,
       borderTopLeftRadius: borderRadius.xxl,
       borderTopRightRadius: borderRadius.xxl,
       paddingHorizontal: spacing.xl,
@@ -157,11 +154,11 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       >
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.heading}>{t.saveArticle}</Text>
+          <Text style={styles.heading}>{t.articles.saveArticle}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder={t.urlPlaceholder}
+            placeholder={t.articles.urlPlaceholder}
             placeholderTextColor={colors.placeholder}
             value={url}
             onChangeText={(t) => {
@@ -179,7 +176,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
           {!!error && <Text style={styles.error}>{error}</Text>}
 
           <IconButton
-            label={t.save}
+            label={t.articles.save}
             variant="filled"
             onPress={handleSave}
             loading={loading}

@@ -1,9 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Linking, StyleSheet } from 'react-native';
-import { sharedStyles, spacing, borderRadius } from '../lib/theme';
-import { useLanguage } from '../lib/languageContext';
-import { interpolate } from '../lib/translations';
-import { useTheme } from '../lib/themeContext';
+import { sharedStyles, spacing, borderRadius, useTheme } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -15,7 +13,7 @@ type Props = {
 };
 
 export default function ArticleFallback({ title, url, isFetching, fetchStatus, onFetchAgain }: Props) {
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
   const { colors } = useTheme();
 
   const styles = useMemo(() => StyleSheet.create({
@@ -54,16 +52,16 @@ export default function ArticleFallback({ title, url, isFetching, fetchStatus, o
   return (
     <View style={styles.fallback}>
       <Text style={styles.fallbackText}>
-        {title ? interpolate(t.couldNotLoad, { title }) : t.noContent}
+        {title ? translate('articles.couldNotLoad', { title }) : t.articles.noContent}
       </Text>
       <IconButton
-        label={t.openInBrowser}
+        label={t.articles.openInBrowser}
         variant="filled"
         onPress={() => Linking.openURL(url)}
         style={styles.openBtn}
       />
       <IconButton
-        label={fetchStatus === 'success' ? t.downloadSuccess : fetchStatus === 'error' ? t.downloadError : t.downloadOffline}
+        label={fetchStatus === 'success' ? t.articles.downloadSuccess : fetchStatus === 'error' ? t.articles.downloadError : t.articles.downloadOffline}
         variant="outlined"
         color={fetchStatus === 'success' ? colors.success : fetchStatus === 'error' ? colors.error : colors.primary}
         onPress={onFetchAgain}

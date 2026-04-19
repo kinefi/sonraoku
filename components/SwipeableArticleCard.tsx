@@ -1,14 +1,13 @@
 import React, { useRef, useMemo } from 'react';
 import { Text, StyleSheet, AccessibilityInfo } from 'react-native';
-import { sharedStyles, spacing, borderRadius } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
+import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
  
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { queryClient } from '../lib/queryClient';
-import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '../lib/db';
+import { queryClient } from '@/lib/reader';
+import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '@/lib/db';
 import ArticleCard from './ArticleCard';
-import { useLanguage } from '../lib/languageContext';
 import IconButton from './IconButton';
+import { useLanguage } from '@/lib/language';
 
 type Props = {
   article: Article;
@@ -56,32 +55,32 @@ export default function SwipeableArticleCard({ article, onPress, onLongPress, is
     queryClient.invalidateQueries({ queryKey: ['articles'] });
   }
 
-  function handleToggleRead() {
+  async function handleToggleRead() {
     if (article.is_read) {
-      markArticleUnread(article.id);
-      AccessibilityInfo.announceForAccessibility(t.markAsUnread);
+      await markArticleUnread(article.id);
+      AccessibilityInfo.announceForAccessibility(t.articles.markAsUnread);
     } else {
-      markArticleRead(article.id);
-      AccessibilityInfo.announceForAccessibility(t.markAsRead);
+      await markArticleRead(article.id);
+      AccessibilityInfo.announceForAccessibility(t.articles.markAsRead);
     }
     invalidate();
     swipeableRef.current?.close();
   }
 
-  function handleToggleArchive() {
+  async function handleToggleArchive() {
     if (article.is_archived) {
-      unarchiveArticle(article.id);
-      AccessibilityInfo.announceForAccessibility(t.unarchive);
+      await unarchiveArticle(article.id);
+      AccessibilityInfo.announceForAccessibility(t.articles.unarchive);
       swipeableRef.current?.close();
     } else {
-      archiveArticle(article.id);
-      AccessibilityInfo.announceForAccessibility(t.archive);
+      await archiveArticle(article.id);
+      AccessibilityInfo.announceForAccessibility(t.articles.archive);
     }
     invalidate();
   }
 
   function renderLeftActions() {
-    const label = article.is_read ? t.markAsUnread : t.markAsRead;
+    const label = article.is_read ? t.articles.markAsUnread : t.articles.markAsRead;
     const icon = article.is_read ? 'mail-unread-outline' : 'checkmark-circle-outline';
     return (
       <IconButton
@@ -98,7 +97,7 @@ export default function SwipeableArticleCard({ article, onPress, onLongPress, is
   }
 
   function renderRightActions() {
-    const label = article.is_archived ? t.unarchive : t.archive;
+    const label = article.is_archived ? t.articles.unarchive : t.articles.archive;
     const icon = article.is_archived ? 'arrow-undo-outline' : 'archive-outline';
     return (
       <IconButton

@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent } from 'react-native';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useTheme } from '../lib/themeContext';
-import { spacing, borderRadius } from '../lib/theme';
+import { useTheme, spacing, borderRadius } from '@/lib/theme';
 import IconButton, { IconName } from './IconButton';
 
 type OptionObject<T> = { key: T; label?: string; icon?: IconName };
@@ -54,36 +53,55 @@ export default function SegmentedControl<T extends string>({
     setContainerWidth(e.nativeEvent.layout.width);
   };
 
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      backgroundColor: colors.bgMuted,
+      borderRadius: size === 'small' ? borderRadius.xxl : borderRadius.lg,
+      padding: spacing.xs / 2,
+      margin: size === 'small' ? 0 : spacing.lg,
+      position: 'relative',
+    },
+    indicator: {
+      position: 'absolute',
+      top: spacing.xs / 2,
+      left: spacing.xs / 2,
+      width: segmentWidth,
+      bottom: spacing.xs / 2,
+      backgroundColor: colors.white,
+      borderRadius: size === 'small' ? borderRadius.xxl - 2 : borderRadius.md,
+      elevation: 2,
+      shadowColor: colors.black,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    },
+    segment: {
+      flex: 1,
+      paddingVertical: size === 'small' ? spacing.xs : spacing.sm,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+    },
+    label: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    labelActive: {
+      color: colors.primary,
+      fontWeight: '600',
+    },
+  }), [colors, size, segmentWidth]);
+
   return (
     <View 
       onLayout={handleLayout}
       accessibilityLabel={accessibilityLabel}
-      style={{ 
-        flexDirection: 'row', 
-        backgroundColor: colors.bgMuted, 
-        borderRadius: size === 'small' ? borderRadius.xxl : borderRadius.lg, 
-        padding: spacing.xs / 2, 
-        margin: size === 'small' ? 0 : spacing.lg, 
-        position: 'relative' 
-      }}
+      style={styles.container}
     >
       {containerWidth > 0 && (
         <Animated.View 
-          style={{
-            position: 'absolute',
-            top: spacing.xs / 2,
-            left: spacing.xs / 2,
-            width: segmentWidth,
-            bottom: spacing.xs / 2,
-            backgroundColor: colors.white,
-            borderRadius: size === 'small' ? borderRadius.xxl - 2 : borderRadius.md,
-            elevation: 2,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.1,
-            shadowRadius: 2,
-            transform: [{ translateX }]
-          }}
+          style={[styles.indicator, { transform: [{ translateX }] }]}
         />
       )}
       {options.map((opt) => {
@@ -107,13 +125,7 @@ export default function SegmentedControl<T extends string>({
             accessibilityRole="tab"
             accessibilityLabel={label || String(key)}
             accessibilityState={{ selected: isActive }}
-            style={{
-              flex: 1,
-              paddingVertical: size === 'small' ? spacing.xs : spacing.sm,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-            }}
+            style={styles.segment}
           >
             {icon && (
               <IconButton 
@@ -125,7 +137,7 @@ export default function SegmentedControl<T extends string>({
               />
             )}
             {label && (
-              <Text style={{ fontSize: 13, fontWeight: isActive ? '600' : '400', color: isActive ? colors.primary : colors.textSecondary }}>
+              <Text style={[styles.label, isActive && styles.labelActive]}>
                 {label}
               </Text>
             )}

@@ -54,39 +54,37 @@ The app supports Turkish and English with an in-app language switcher in setting
 app/
   _layout.tsx          # root layout — QueryClient, GestureHandler, parse queue, DB init
   (tabs)/
-    _layout.tsx        # bottom tab navigator
-    index.tsx          # article list screen
-    tags.tsx           # browse articles by tags
-    highlights.tsx     # global feed of all highlights
-    settings.tsx       # language + font size settings
+    _layout.tsx        # Bottom tab navigator
+    index.tsx          # Article list screen
+    tags.tsx           # Browse articles by tags
+    highlights.tsx     # Global feed of all highlights
+    settings.tsx       # App settings
   article/[id].tsx     # reader screen
-components/
-  ArticleCard.tsx      # card used in list screen
-  ArticleParser.tsx    # hidden WebView that runs Readability
-  ArticleMetaHeader.tsx # reader screen header
-  ArticleFallback.tsx  # empty/error state for reader
-  ReaderView.tsx       # renders article HTML via WebView
-  ReaderFabPill.tsx    # floating actions in reader
-  SwipeableArticleCard.tsx # wraps ArticleCard with swipe gestures
-  HighlightsModal.tsx
-  TagsModal.tsx
-  SaveUrlSheet.tsx
-  SearchBar.tsx
-  FabGroup.tsx
+components/            # UI Components (exported via index.ts barrel)
+  index.ts             # Public API for all components
+  ArticleCard.tsx, ArticleParser.tsx, ReaderView.tsx, etc.
 lib/
-  db.ts                # Database connection, migration runner, and CRUD helpers
-  schema.ts            # Drizzle ORM table and relation definitions
-  utils.ts             # shared helpers (domain, read time, fetchRawHtml)
-  translations.ts      # TR/EN strings and interpolation logic
-  languageContext.tsx  # LanguageProvider + useLanguage hook (translate helper)
-  hooks.ts             # Custom hooks for managing app-wide settings (e.g., font size, highlight color, cache)
-  imageCache.ts        # Downloads + local caching of article images
-  parseQueue.tsx       # React context for background article parsing
-  queryClient.ts       # TanStack Query configuration
-  theme.ts             # Design tokens (colors, shared styles, highlights)
-  readerAssets.ts      # CSS and JS injected into the reader WebView
-  htmlBuilder.ts       # Builder for the parser WebView
-  constants.ts         # Global keys (Storage, etc)
+  db/                  # Data Layer (Drizzle + SQLite)
+    index.ts           # Barrel export (config, schema, articles, highlights, tags)
+    schema.ts          # Table definitions
+    config.ts          # Initialization & migrations
+    types.ts           # Domain & Result types
+    articles.ts, highlights.ts, tags.ts # Domain services
+  reader/              # Reader & Parser Logic
+    index.ts           # Barrel export
+    readerAssets.ts    # WebView CSS/JS & HTML building
+    imageCache.ts      # Image caching logic
+    parseQueue.tsx     # Background job context
+    useReaderSelection.ts, useArticleParser.ts # Logic hooks
+    ...
+  language/            # i18n & Localization
+    index.ts           # Barrel export
+    tr.ts, en.ts       # Hierarchical translation files
+    translations.ts, context.tsx # Interpolation logic & context
+  theme/               # Design System (colors, shared styles, useTheme)
+  toast/               # Toast notification context
+  utils.ts             # Shared helpers (domain, read time, etc.)
+  constants.ts         # Global keys and constants
 scripts/
   rawStringTransformer.js  # Serves @mozilla/readability/Readability.js as raw string
 drizzle/               # Generated SQL migrations and metadata
@@ -291,3 +289,12 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - Use functional components + hooks throughout
 - Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup
 - Never write hex color codes directly in components — always use `lib/theme.ts` tokens
+
+### Coding Standards & Import Strategy
+- **Absolute Paths:** Always use the `@/` alias for internal imports (e.g., `@/lib/db`, `@/components`).
+- **Barrel Exports:** Import from directory roots rather than specific files (e.g., `import { useTheme } from '@/lib/theme'` instead of `../lib/theme/useTheme`).
+- **No Circular Imports:** Avoid cyclic references in the same folder. Within `components/`, use relative imports (e.g., `./IconButton`) for siblings instead of the `@/components` barrel to prevent circular dependencies.
+- **i18n:** Use `translate('key', { param: value })` from `useLanguage()` for all strings requiring interpolation, rather than calling `interpolate` manually.
+- **Styles:** Wrap `StyleSheet.create` in `useMemo` and always spread `sharedStyles(colors)` to maintain theme consistency.
+- **Data Safety:** Use `sanitizeSqlString(s)` for all parsed web content before saving to SQLite to prevent null-byte crashes.
+- **UI Transitions:** Use `useThemeTransition(targetColor)` on root containers for smooth background animations during theme swaps.

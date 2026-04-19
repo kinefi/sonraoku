@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
 export const DEFAULT_FONT_SIZE = 16;
 
 export const DATABASE_NAME = 'sonraoku.db';
+export const ARTICLES_PAGE_SIZE = 20;
 export const IMAGE_CACHE_FOLDER = 'images';
 
 export const USER_AGENT = 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';

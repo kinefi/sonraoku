@@ -3,15 +3,13 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack } from 'expo-router';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from '../lib/queryClient';
-import { ParseQueueContext, ParseQueueItem } from '../lib/parseQueue';
-import { initDb, updateArticleContent } from '../lib/db';
-import { cacheArticleImages } from '../lib/imageCache';
-import ArticleParser, { ParseResult } from '../components/ArticleParser';
-import { LanguageProvider, useLanguage } from '../lib/languageContext';
-import { ThemeProvider } from '../lib/themeContext';
-import { ToastProvider, useToast } from '../lib/toastContext';
-import { interpolate } from '../lib/translations';
+import { queryClient, ParseQueueContext, ParseQueueItem, cacheArticleImages } from '@/lib/reader';
+import { initDb, updateArticleContent } from '@/lib/db';
+import { ArticleParser } from '@/components';
+import { LanguageProvider, useLanguage } from '@/lib/language';
+import { ThemeProvider, useTheme } from '@/lib/theme';
+import { ToastProvider, useToast } from '@/lib/toast';
+import { ParseResult } from '@/types/reader';
 
 const MAX_PARSE_RETRIES = 2;
 
@@ -19,13 +17,18 @@ function RootLayoutContent() {
   const [parseQueue, setParseQueue] = useState<ParseQueueItem[]>([]);
   const [isDbReady, setIsDbReady] = useState(false);
 
+  const { colors } = useTheme();
+
   useEffect(() => {
     const setup = async () => {
       try {
-        await initDb();
+        const result = await initDb();
+        if (result.error) {
+          console.error('Database migration failed during setup:', result.error);
+        }
         setIsDbReady(true);
       } catch (e) {
-        console.error('Database initialization failed:', e);
+        console.error('Unexpected error during setup:', e);
         setIsDbReady(true); // Proceed anyway to show error states instead of hanging
       }
     };
@@ -33,34 +36,45 @@ function RootLayoutContent() {
   }, []);
 
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
 
   const addToQueue = useCallback((item: ParseQueueItem) => {
     setParseQueue((prev) => [...prev, item]);
   }, []);
 
-  const handleParsed = useCallback((id: string, result: ParseResult) => {
-    // Ensure we are still processing the correct item
-    setParseQueue((prev) => {
-      if (prev[0]?.id !== id) return prev;
+  const handleParsed = useCallback(async (id: string, result: ParseResult) => {
+    // Find the specific item in the queue to avoid race conditions
+    const queueItem = parseQueue.find(item => item.id === id);
+    if (!queueItem) return;
 
-      (async () => {
-        let cachedHtml = result.content;
-        try {
-          cachedHtml = await cacheArticleImages(result.content, id);
-        } catch (e) {
-          console.warn('Image caching failed, using original HTML:', e);
-          showToast({ message: t.imageCachingFailed, type: 'info' });
-        }
-        await updateArticleContent(id, result.title, result.excerpt, cachedHtml, result.lang);
-        queryClient.invalidateQueries({ queryKey: ['articles'] });
-        queryClient.invalidateQueries({ queryKey: ['article', id] });
-        showToast({ message: result.title || t.articleSaved, type: 'success' });
-      })();
+    let cachedHtml = result.content;
+    try {
+      if (result.content) {
+        cachedHtml = await cacheArticleImages(result.content, id);
+      }
+    } catch (e) {
+      console.warn('Image caching failed, using original HTML:', e);
+    }
 
-      return prev.slice(1);
-    });
-  }, []);
+    const { error } = await updateArticleContent(
+      id, 
+      result.title || queueItem.title || t.articles.untitled, 
+      result.excerpt, 
+      cachedHtml, 
+      result.lang
+    );
+
+    if (!error) {
+      queryClient.invalidateQueries({ queryKey: ['articles'] });
+      queryClient.invalidateQueries({ queryKey: ['article', id] });
+      showToast({ message: result.title || t.articles.saved, type: 'success' });
+    } else {
+      console.error(`DB Error saving article ${id}:`, error);
+      showToast({ message: t.errors.parseError, type: 'error' });
+    }
+    
+    setParseQueue((prev) => prev.filter(item => item.id !== id));
+  }, [parseQueue, t.articles.saved, t.errors.parseError, showToast]);
 
   const handleParseError = useCallback((id: string, error?: string) => {
     console.warn('Parse failed for article', id, error ? `- ${error}` : '');
@@ -71,7 +85,7 @@ function RootLayoutContent() {
       const retries = activeJob.retries ?? 0;
       if (retries < MAX_PARSE_RETRIES) {
         showToast({
-          message: interpolate(t.retryAttempt, {
+          message: translate('errors.retryAttempt', {
             n: retries + 1,
             max: MAX_PARSE_RETRIES
           }),
@@ -79,21 +93,21 @@ function RootLayoutContent() {
         });
         return [...prev.slice(1), { ...activeJob, retries: retries + 1 }];
       } else {
-        showToast({ message: t.parseFailed, type: 'error' });
+        showToast({ message: t.errors.parseFailed, type: 'error' });
       }
-      return prev.slice(1);
+      return prev.filter(item => item.id !== id);
     });
-  }, []);
+  }, [t.errors.parseFailed, translate, showToast]);
 
   const current = parseQueue[0];
 
   // Memoize context to prevent full app re-renders when layout re-renders
-  const queueContextValue = useMemo(() => ({ addToQueue }), [addToQueue]);
+  const queueContextValue = useMemo(() => ({ addToQueue, parseQueue }), [addToQueue, parseQueue]);
 
   if (!isDbReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#534AB7" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

@@ -42,8 +42,8 @@ export const tags = sqliteTable('tags', {
 });
 
 export const articleTags = sqliteTable('article_tags', {
-  article_id: text('article_id').references(() => articles.id, { onDelete: 'cascade' }),
-  tag_id: text('tag_id').references(() => tags.id, { onDelete: 'cascade' }),
+  article_id: text('article_id').notNull().references(() => articles.id, { onDelete: 'cascade' }),
+  tag_id: text('tag_id').notNull().references(() => tags.id, { onDelete: 'cascade' }),
 }, (t) => ({
   pk: primaryKey({ columns: [t.article_id, t.tag_id] }),
 }));

@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Share } from 'react-native';
-import { Article } from '../lib/db';
-import { useTheme } from '../lib/themeContext';
-import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
-import { getDomain, getReadTime } from '../lib/utils';
-import { interpolate, LANGUAGES } from '../lib/translations';
-import { useLanguage } from '../lib/languageContext';
+import { View, Text, StyleSheet } from 'react-native';
+import { Article } from '@/lib/db';
+import { useTheme, sharedStyles, spacing, borderRadius, typography } from '@/lib/theme';
+import { getDomain, getReadTime } from '@/lib/utils';
+import { useLanguage, LANGUAGES } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -13,7 +11,7 @@ type Props = {
 };
 
 export default function ArticleMetaHeader({ article }: Props) {
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
   const { colors } = useTheme();
   
   const langLabel = article.lang
@@ -21,22 +19,12 @@ export default function ArticleMetaHeader({ article }: Props) {
       article.lang.toUpperCase()
     : null;
 
-  const handleShare = async () => {
-    try {
-      await Share.share({
-        title: article.title || t.appName,
-        message: article.url,
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      backgroundColor: 'transparent',
       paddingHorizontal: spacing.xl,
       paddingVertical: spacing.sm,
       borderBottomWidth: 1,
@@ -70,21 +58,15 @@ export default function ArticleMetaHeader({ article }: Props) {
         {article.html_content && (
           <Text style={styles.metaText}>
             {langLabel && `${langLabel} • `}
-            {interpolate(t.readTime, { m: getReadTime(article.html_content) })}
+            {translate('articles.readTime', { m: getReadTime(article.html_content) })}
           </Text>
         )}
       </View>
       <View style={styles.metaRight}>
-        <IconButton
-          name="share-outline"
-          size={20}
-          onPress={handleShare}
-          accessibilityLabel={t.share}
-        />
         {article.html_content && (
           <View style={styles.offlineIndicator}>
             <View style={styles.offlineDot} />
-            <Text style={styles.offlineText}>{t.offlineLabel}</Text>
+            <Text style={styles.offlineText}>{t.articles.offlineLabel}</Text>
           </View>
         )}
       </View>

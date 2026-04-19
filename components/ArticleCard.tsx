@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Article } from '../lib/db';
-import { useTheme } from '../lib/themeContext';
-import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
-import { getDomain, getReadTime } from '../lib/utils';
-import { interpolate } from '../lib/translations';
-import { useLanguage } from '../lib/languageContext';
+import { Article } from '@/lib/db';
+import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
+import { getDomain, getReadTime } from '@/lib/utils';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -17,7 +15,7 @@ type Props = {
 };
 
 export default function ArticleCard({ article, onPress, onLongPress, isSelected, selectionMode }: Props) {
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
   const { colors, isDark, themeMode } = useTheme();
   const isOffline = article.html_content !== null;
   const isRead = !!article.is_read;
@@ -25,10 +23,10 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
   function getRelativeTime(ts: number): string {
     const diff = Math.max(0, Date.now() - ts);
     const mins = Math.floor(diff / 60_000);
-    if (mins < 60) return interpolate(t.minutesAgo, { m: mins });
+    if (mins < 60) return translate('articles.minutesAgo', { m: mins });
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return interpolate(t.hoursAgo, { m: hrs });
-    return interpolate(t.daysAgo, { m: Math.floor(hrs / 24) });
+    if (hrs < 24) return translate('articles.hoursAgo', { m: hrs });
+    return translate('articles.daysAgo', { m: Math.floor(hrs / 24) });
   }
 
   const styles = useMemo(() => StyleSheet.create({
@@ -39,12 +37,12 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       padding: spacing.md + 2,
       borderRadius: borderRadius.lg,
       borderWidth: 1,
-      backgroundColor: colors.white,
+      backgroundColor: 'transparent',
       borderColor: colors.border,
     },
     cardSelected: {
       borderColor: colors.primary,
-      backgroundColor: themeMode === 'high-contrast' ? colors.white : (isDark ? '#2a246b' : '#f0effc'),
+      backgroundColor: themeMode === 'high-contrast' ? colors.white : colors.bgMuted,
       borderWidth: themeMode === 'high-contrast' ? 3 : 1,
     },
     cardContent: {
@@ -116,11 +114,11 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
 
   // Construct a comprehensive accessibility label for the card
   const cardAccessibilityLabel = [
-    article.title ?? t.loading,
+    article.title ?? t.common.loading,
     getDomain(article.url),
-    isRead ? t.markAsRead : t.unread,
-    article.is_favorite === 1 ? t.favorites : null,
-    isOffline ? t.offlineLabel : null,
+    isRead ? t.articles.markAsRead : t.articles.unread,
+    article.is_favorite === 1 ? t.articles.favorites : null,
+    isOffline ? t.articles.offlineLabel : null,
   ].filter(Boolean).join('. ');
 
   return (
@@ -132,7 +130,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       ]}
       accessibilityRole="button"
       accessibilityLabel={cardAccessibilityLabel}
-      accessibilityHint={!selectionMode ? t.swipeHint : undefined}
+      accessibilityHint={!selectionMode ? t.articles.swipeHint : undefined}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.5}
@@ -155,23 +153,23 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
               <View 
                 style={[styles.unreadBadge, isRead && styles.inactiveDot]} 
                 accessible={true} 
-                accessibilityLabel={isRead ? t.markAsRead : t.unread} 
+                accessibilityLabel={isRead ? t.articles.markAsRead : t.articles.unread} 
               />
               <View 
                 style={[styles.favoriteDot, article.is_favorite !== 1 && styles.inactiveDot]} 
                 accessible={true} 
-                accessibilityLabel={article.is_favorite === 1 ? t.favorites : t.unfavorited} 
+                accessibilityLabel={article.is_favorite === 1 ? t.articles.favorites : t.articles.unfavorited} 
               />
               <View 
                 style={[styles.offlineDot, !isOffline && styles.inactiveDot]} 
                 accessible={true} 
-                accessibilityLabel={isOffline ? t.offlineLabel : t.offline} 
+                accessibilityLabel={isOffline ? t.articles.offlineLabel : t.articles.offline} 
               />
             </View>
           </View>
 
           <Text style={styles.title} numberOfLines={2}>
-            {article.title ?? t.loading}
+            {article.title ?? t.common.loading}
           </Text>
 
           {!!article.excerpt && (
@@ -182,7 +180,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
 
           <View style={styles.meta}>
             <Text style={styles.metaText}>{getRelativeTime(article.saved_at)}</Text>
-            {isOffline && <Text style={styles.metaText}>{interpolate(t.readTime, { m: getReadTime(article.html_content) })}</Text>}
+            {isOffline && <Text style={styles.metaText}>{translate('articles.readTime', { m: getReadTime(article.html_content) })}</Text>}
           </View>
         </View>
       </View>

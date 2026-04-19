@@ -1,9 +1,8 @@
-import React, { useMemo } from 'react';
-import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
-import { Highlight } from '../lib/db';
-import { sharedStyles, spacing, borderRadius } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
-import { useLanguage } from '../lib/languageContext';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
+import { Highlight } from '@/lib/db';
+import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -11,19 +10,37 @@ type Props = {
   onClose: () => void;
   highlights: Highlight[];
   onSelect: (id: string) => void;
+  onDelete?: (id: string) => void;
   defaultColor: string;
 };
 
-export default function HighlightsModal({ visible, onClose, highlights, onSelect, defaultColor }: Props) {
+export default function HighlightsModal({ visible, onClose, highlights, onSelect, onDelete, defaultColor }: Props) {
   const { t } = useLanguage();
   const { colors } = useTheme();
 
+  const confirmDelete = useCallback((id: string) => {
+    if (!onDelete) return;
+    
+    Alert.alert(
+      t.common.confirmDelete,
+      '',
+      [
+        { text: t.common.cancel, style: 'cancel' },
+        { 
+          text: t.common.delete, 
+          style: 'destructive', 
+          onPress: () => onDelete(id) 
+        }
+      ]
+    );
+  }, [onDelete, t]);
+
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalBackdrop: { flex: 1, backgroundColor: colors.overlay },
     modalContent: {
       height: '60%',
-      backgroundColor: colors.white,
+      backgroundColor: colors.bgPage,
       borderTopLeftRadius: borderRadius.xxl,
       borderTopRightRadius: borderRadius.xxl,
       paddingTop: spacing.lg,
@@ -61,13 +78,13 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
       <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{t.highlightsTitle}</Text>
+          <Text style={styles.modalTitle}>{t.highlights.title}</Text>
           <IconButton
             name="close"
             size={24}
             color={colors.textPrimary}
             onPress={onClose}
-            accessibilityLabel={t.back}
+            accessibilityLabel={t.common.back}
           />
         </View>
         <FlatList
@@ -83,12 +100,22 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
               <Text style={styles.highlightText} numberOfLines={3}>
                 {item.selected_text}
               </Text>
-              <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                {onDelete && (
+                  <IconButton 
+                    name="trash-outline" 
+                    size={18} 
+                    color={colors.error} 
+                    onPress={() => confirmDelete(item.id)} 
+                  />
+                )}
+                <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
+              </View>
             </TouchableOpacity>
           )}
           ListEmptyComponent={
             <View style={styles.emptyHighlights}>
-              <Text style={styles.emptyHighlightsText}>{t.noHighlightsYet}</Text>
+              <Text style={styles.emptyHighlightsText}>{t.highlights.noHighlightsYet}</Text>
             </View>
           }
         />

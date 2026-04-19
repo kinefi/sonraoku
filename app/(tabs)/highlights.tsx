@@ -1,38 +1,39 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share, StatusBar } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Share, StatusBar, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
-import { getAllHighlights, deleteHighlight, HighlightWithArticle } from '../../lib/db';
-import { queryClient } from '../../lib/queryClient';
-import { useLanguage } from '../../lib/languageContext';
-import { sharedStyles } from '../../lib/theme';
-import { useTheme } from '../../lib/themeContext';
-import FabGroup from '../../components/FabGroup';
-import SaveUrlSheet from '../../components/SaveUrlSheet';
-import SearchBar from '../../components/SearchBar';
-import IconButton from '../../components/IconButton';
-import { useToast } from '../../lib/toastContext';
+import { getAllHighlights, deleteHighlight, HighlightWithArticle } from '@/lib/db';
+import { queryClient } from '@/lib/reader';
+import { useLanguage } from '@/lib/language';
+import { useTheme, sharedStyles } from '@/lib/theme';
+import { useThemeTransition } from '@/lib/hooks';
+import { FabGroup, SaveUrlSheet, SearchBar, IconButton } from '@/components';
+import { useToast } from '@/lib/toast';
 
 export default function HighlightsScreen() {
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
   const [showSheet, setShowSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: highlights = [] } = useQuery({
+  const { data: highlights = [], isFetching, refetch } = useQuery({
     queryKey: ['highlights', 'all', searchQuery],
-    queryFn: () => getAllHighlights(searchQuery),
+    queryFn: async () => {
+      const res = await getAllHighlights(searchQuery);
+      if (res.error) throw res.error;
+      return res.data || [];
+    },
   });
 
   const { showToast } = useToast();
 
   const handleDelete = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(t.delete, t.confirmDelete, [
-      { text: t.back, style: 'cancel' },
+    Alert.alert(t.common.delete, t.common.confirmDelete, [
+      { text: t.common.back, style: 'cancel' },
       {
-        text: t.delete,
+        text: t.common.delete,
         style: 'destructive',
         onPress: () => {
           deleteHighlight(id);
@@ -45,7 +46,7 @@ export default function HighlightsScreen() {
   const handleShare = async (item: HighlightWithArticle) => {
     try {
       await Share.share({
-        message: item.article_title 
+        message: item.article_title
           ? `"${item.selected_text}"\n\n— ${item.article_title}`
           : item.selected_text,
       });
@@ -57,16 +58,67 @@ export default function HighlightsScreen() {
   const handleCopy = async (text: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await Clipboard.setStringAsync(text);
-    showToast({ message: t.copied, type: 'success' });
+    showToast({ message: t.common.copied, type: 'success' });
   };
 
   const { colors, isDark } = useTheme();
+
+  // Smooth theme transition for the background
+  const animatedBgColor = useThemeTransition(colors.bgPage);
+
+  const renderHighlightItem = useCallback(({ item }: { item: HighlightWithArticle }) => (
+    <View style={styles.itemRow}>
+      <TouchableOpacity
+        style={styles.itemContent}
+        onPress={() =>
+          router.push({
+            pathname: '/article/[id]',
+            params: { id: item.article_id, highlightId: item.id }
+          })
+        }
+      >
+        <Text style={styles.articleTitle} numberOfLines={1}>
+          {item.article_title || t.articles.untitled}
+        </Text>
+        <Text style={styles.text} numberOfLines={3}>
+          {item.selected_text}
+        </Text>
+        <View style={styles.footer}>
+          <IconButton name="time-outline" size={12} color={colors.textFaint} passive />
+          <Text style={styles.date}>
+            {new Date(item.created_at).toLocaleDateString()}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      <View style={styles.actions}>
+        <IconButton
+          name="copy-outline"
+          size={18}
+          onPress={() => handleCopy(item.selected_text)}
+          accessibilityLabel={t.common.copy}
+        />
+        <IconButton
+          name="share-social-outline"
+          size={18}
+          onPress={() => handleShare(item)}
+          accessibilityLabel={t.common.share}
+        />
+        <IconButton
+          name="trash-outline"
+          size={18}
+          color={colors.error}
+          onPress={() => handleDelete(item.id)}
+          accessibilityLabel={t.common.delete}
+        />
+      </View>
+    </View>
+  ), [colors, handleCopy, handleShare, handleDelete, t]);
 
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
     itemRow: {
       flexDirection: 'row',
-      backgroundColor: colors.white,
+      backgroundColor: colors.bgPage,
       borderBottomWidth: 1,
       borderBottomColor: colors.borderLight,
     },
@@ -120,88 +172,46 @@ export default function HighlightsScreen() {
   }), [colors]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.highlightsTitle}</Text>
-      </View>
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={t.searchPlaceholder}
-        onClear={() => setSearchQuery('')}
-      />
-      <FlatList
-        data={highlights}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.itemRow}>
-            <TouchableOpacity
-              style={styles.itemContent}
-              onPress={() => 
-                router.push({ 
-                  pathname: '/article/[id]', 
-                  params: { id: item.article_id, highlightId: item.id } 
-                })
-              }
-            >
-              <Text style={styles.articleTitle} numberOfLines={1}>
-                {item.article_title || '...'}
-              </Text>
-              <Text style={styles.text} numberOfLines={3}>
-                {item.selected_text}
-              </Text>
-              <View style={styles.footer}>
-                <IconButton name="time-outline" size={12} color={colors.textFaint} passive />
-                <Text style={styles.date}>
-                  {new Date(item.created_at).toLocaleDateString()}
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <View style={styles.actions}>
-              <IconButton
-                name="copy-outline"
-                size={18}
-                onPress={() => handleCopy(item.selected_text)}
-                accessibilityLabel={t.copy}
-              />
-              <IconButton
-                name="share-social-outline"
-                size={18}
-                onPress={() => handleShare(item)}
-                accessibilityLabel={t.share}
-              />
-              <IconButton
-                name="trash-outline"
-                size={18}
-                color={colors.error}
-                onPress={() => handleDelete(item.id)}
-                accessibilityLabel={t.delete}
-              />
+    <Animated.View style={[styles.container, { backgroundColor: animatedBgColor, flex: 1 }]}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{t.nav.highlights}</Text>
+        </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t.articles.searchPlaceholder}
+          onClear={() => setSearchQuery('')}
+        />
+        <FlatList
+          data={highlights}
+          keyExtractor={(item) => item.id}
+          renderItem={renderHighlightItem}
+          refreshing={isFetching}
+          onRefresh={refetch}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <IconButton name="bookmarks-outline" size={48} color={colors.borderMid} passive />
+              <Text style={styles.emptyText}>{t.highlights.noHighlightsYet}</Text>
             </View>
-          </View>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <IconButton name="bookmarks-outline" size={48} color={colors.borderMid} passive />
-            <Text style={styles.emptyText}>{t.noHighlightsYet}</Text>
-          </View>
-        }
-        contentContainerStyle={highlights.length === 0 && { flex: 1 }}
-      />
+          }
+          contentContainerStyle={highlights.length === 0 && { flex: 1 }}
+        />
 
-      <FabGroup
-        actions={[
-          {
-            icon: 'add',
-            iconSize: 30,
-            onPress: () => setShowSheet(true),
-            haptic: Haptics.ImpactFeedbackStyle.Light,
-          },
-        ]}
-      />
+        <FabGroup
+          actions={[
+            {
+              icon: 'add',
+              iconSize: 30,
+              onPress: () => setShowSheet(true),
+              haptic: Haptics.ImpactFeedbackStyle.Light,
+            },
+          ]}
+        />
 
-      <SaveUrlSheet visible={showSheet} onClose={() => setShowSheet(false)} />
-    </SafeAreaView>
+        <SaveUrlSheet visible={showSheet} onClose={() => setShowSheet(false)} />
+      </SafeAreaView>
+    </Animated.View>
   );
 }

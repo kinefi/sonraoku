@@ -13,9 +13,9 @@ Kişisel bir "sonra oku" Android uygulaması. Makale URL'lerini kaydedin, tamame
 - Kaydırma ile arşivleme veya okundu/okunmadı işaretleme
 - Favori makaleler için özel filtre ve arayüz göstergeleri
 - Arka plan işlemleri (ayrıştırma, önbelleğe alma vb.) için bildirimler
-- Yüksek Kontrast ve Sepya temalarıyla erişilebilirlik öncelikli tasarım
+- Yüksek Kontrast ve Sepya temalarıyla erişilebilirlik öncelikli tasarım ve yumuşak geçişler
 - Oturumlar arasında saklanan ayarlanabilir font boyutu
-- Türkçe / İngilizce arayüz
+- Türkçe / İngilizce arayüz (hiyerarşik tip güvenli çeviri anahtarları ile)
 
 ## Teknoloji
 

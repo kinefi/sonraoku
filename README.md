@@ -13,9 +13,9 @@ A personal "read later" app for Android. Save article URLs, read them fully offl
 - Swipe to archive or mark as read
 - Favorite articles with dedicated filter and UI indicators
 - Toast notifications for background operations (parsing, caching, etc.)
-- Accessibility-first design with High Contrast and Sepia themes
+- Accessibility-first design with High Contrast and Sepia themes including smooth transitions
 - Adjustable font size (persisted across sessions)
-- Turkish / English UI
+- Turkish / English UI with hierarchical type-safe translation keys
 
 ## Tech Stack
 
@@ -107,6 +107,6 @@ types/            ambient TypeScript declarations
 ## Roadmap
 
 - [x] Phase 1 — Offline core loop
-- [x] Phase 2 — Polish (image cache, swipe gestures, TTS, font size, i18n, favorites, notifications)
+- [x] Phase 2 — Polish (image cache, swipe gestures, TTS, font size, hierarchical i18n, favorites, notifications, theme transitions)
 - [x] Versioning & Tagging system
 - [ ] Phase 3 — FastAPI backend + JWT auth + delta sync

@@ -1,5 +1,4 @@
 import { USER_AGENT, TIMEOUTS } from './constants';
-import { buildParserHtml } from './htmlBuilder';
 
 export function getDomain(url: string): string {
   try {
@@ -7,6 +6,14 @@ export function getDomain(url: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * Removes null characters and other problematic control characters for SQLite strings.
+ */
+export function sanitizeSqlString(s: string | null | undefined): string {
+  if (!s) return '';
+  return s.replace(/\0/g, '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
 }
 
 export function stripTags(html: string): string {
@@ -68,5 +75,3 @@ export async function fetchRawHtml(url: string): Promise<string> {
     clearTimeout(timeoutId);
   }
 }
-
-export { buildParserHtml };

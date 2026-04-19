@@ -7,9 +7,8 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { sharedStyles, spacing, borderRadius } from '../lib/theme';
-import { useTheme } from '../lib/themeContext';
-import { useLanguage } from '../lib/languageContext';
+import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 import IconButton from './IconButton';
 
 type Props = {
@@ -36,10 +35,10 @@ export default function TagsModal({
 
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
-    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+    modalBackdrop: { flex: 1, backgroundColor: colors.overlay },
     modalContent: {
       height: '60%',
-      backgroundColor: colors.white,
+      backgroundColor: colors.bgPage,
       borderTopLeftRadius: borderRadius.xxl,
       borderTopRightRadius: borderRadius.xxl,
       paddingTop: spacing.lg,
@@ -87,20 +86,20 @@ export default function TagsModal({
       <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.modalContent}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{t.tagsTitle}</Text>
+          <Text style={styles.modalTitle}>{t.tags.title}</Text>
           <IconButton
             name="close"
             size={24}
             color={colors.textPrimary}
             onPress={onClose}
-            accessibilityLabel={t.back}
+            accessibilityLabel={t.common.back}
           />
         </View>
 
         <View style={styles.tagInputRow}>
           <TextInput
             style={styles.tagInput}
-            placeholder={t.tagPlaceholder}
+            placeholder={t.tags.placeholder}
             value={newTag}
             onChangeText={setNewTag}
             placeholderTextColor={colors.placeholder}
@@ -108,7 +107,7 @@ export default function TagsModal({
             autoCapitalize="none"
           />
           <IconButton
-            label={t.addTag}
+            label={t.tags.add}
             variant="filled"
             onPress={onAddTag}
             style={styles.addTagBtn}
@@ -124,7 +123,7 @@ export default function TagsModal({
                 size={16}
                 color={colors.textSecondary}
                 onPress={() => onRemoveTag(tag)}
-                accessibilityLabel={t.delete}
+                accessibilityLabel={t.common.delete}
               />
             </View>
           ))}

@@ -12,29 +12,26 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { sharedStyles, HIGHLIGHT_COLORS, spacing, borderRadius, typography } from '../../lib/theme';
-import { useLanguage } from '../../lib/languageContext';
-import { useTheme } from '../../lib/themeContext';
-import { LANGUAGES, Lang } from '../../lib/translations';
-import { formatBytes } from '../../lib/utils';
-import { APP_VERSION, APP_README, GITHUB_URL, TIMEOUTS } from '../../lib/constants';
-import { useSettings } from '../../lib/hooks';
-import SegmentedControl from '../../components/SegmentedControl';
-import IconButton from '../../components/IconButton';
+import { sharedStyles, HIGHLIGHT_COLORS, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
+import { useLanguage, LANGUAGES, Lang } from '@/lib/language';
+import { formatBytes } from '@/lib/utils';
+import { APP_VERSION, APP_README, GITHUB_URL, TIMEOUTS } from '@/lib/constants';
+import { useSettings } from '@/lib/hooks';
+import { IconButton, SegmentedControl } from '@/components';
 
 export default function SettingsScreen() {
   const { t, lang, setLang } = useLanguage();
   const { themeMode, setThemeMode, fontFamily, setFontFamily, colors, isDark, resetToDefaults } = useTheme();
-  
-  const { 
-    fontSize, 
-    highlightColor, 
-    cacheSize, 
-    changeFontSize, 
-    changeHighlightColor, 
+
+  const {
+    fontSize,
+    highlightColor,
+    cacheSize,
+    changeFontSize,
+    changeHighlightColor,
     handleClearCache,
     FONT_SIZE_MIN,
-    FONT_SIZE_MAX 
+    FONT_SIZE_MAX
   } = useSettings();
 
   // Local state for real-time font size testing in the preview block
@@ -70,8 +67,8 @@ export default function SettingsScreen() {
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
     section: {
-      backgroundColor: colors.white,
-      marginTop: spacing.xl,
+      backgroundColor: 'transparent',
+      marginTop: spacing.lg,
       marginHorizontal: spacing.lg,
       borderRadius: borderRadius.xl,
       borderWidth: 1,
@@ -84,9 +81,9 @@ export default function SettingsScreen() {
       color: colors.textMuted,
       textTransform: 'uppercase',
       letterSpacing: typography.letterSpacing.relaxed,
-      paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
-      paddingBottom: spacing.sm - 2,
+      paddingHorizontal: spacing.md + 2,
+      paddingTop: spacing.sm + 2,
+      paddingBottom: spacing.xs,
     },
     fontSizeRow: {
       flexDirection: 'row',
@@ -156,14 +153,14 @@ export default function SettingsScreen() {
       color: colors.textPrimary,
     },
     previewContainer: {
-      backgroundColor: colors.white,
-      marginTop: spacing.xl,
+      backgroundColor: 'transparent',
+      marginTop: spacing.md,
       marginHorizontal: spacing.lg,
       borderRadius: borderRadius.xl,
       borderWidth: 1,
       borderColor: colors.border,
-      padding: spacing.lg,
-      minHeight: 120,
+      padding: spacing.md,
+      minHeight: 64,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -206,195 +203,189 @@ export default function SettingsScreen() {
   return (
     <Animated.View style={[styles.container, { backgroundColor: animatedBgColor }]}>
       <SafeAreaView style={{ flex: 1 }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t.settings}</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Language */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.language}</Text>
-        <SegmentedControl
-          options={LANGUAGES.map(l => ({ 
-            key: l.key, 
-            label: l.label, 
-            icon: 'language-outline' as const 
-          }))}
-          value={lang}
-          onChange={(newLang: Lang) => {
-            setLang(newLang);
-            const langLabel = LANGUAGES.find(l => l.key === newLang)?.label || newLang;
-            AccessibilityInfo.announceForAccessibility(`${t.language}: ${langLabel}`);
-          }}
-        />
-      </View>
-
-      {/* Theme */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.theme}</Text>
-        <SegmentedControl
-          options={[
-            { key: 'system', icon: 'settings-outline' },
-            { key: 'light', icon: 'sunny-outline' },
-            { key: 'dark', icon: 'moon-outline' },
-            { key: 'sepia', icon: 'color-filter-outline' },
-            { key: 'high-contrast', icon: 'contrast-outline' },
-          ]}
-          value={themeMode}
-          onChange={setThemeMode}
-          accessibilityLabel={t.theme}
-        />
-      </View>
-
-      {/* Preview Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.preview}</Text>
-        <View style={styles.previewContainer}>
-          <Text style={styles.previewText}>
-            The quick brown fox jumps over the lazy dog.
-          </Text>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bgPage} translucent={false} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{t.nav.settings}</Text>
         </View>
-      </View>
 
-      {/* Font Family */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.fontFamily}</Text>
-        <SegmentedControl
-          options={['serif', 'sans-serif'] as const}
-          value={fontFamily}
-          onChange={setFontFamily}
-          getLabel={(val) => val === 'serif' ? t.serif : t.sansSerif}
-          accessibilityLabel={t.fontFamily}
-        />
-      </View>
-
-      {/* Font size */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.defaultFontSize}</Text>
-        <View style={styles.fontSizeRow}>
-          <IconButton
-            label="A−"
-            style={[styles.fontBtn, previewFontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
-            onPress={() => {
-              setPreviewFontSize(prev => Math.max(FONT_SIZE_MIN, prev - 2));
-              changeFontSize(-2);
-            }}
-            disabled={previewFontSize <= FONT_SIZE_MIN}
-            accessibilityLabel={t.minFontSizeReached}
-          />
-          <Text style={[styles.fontSizeValue, { fontSize: previewFontSize }]}>Aa</Text>
-          <IconButton
-            label="A+"
-            style={[styles.fontBtn, previewFontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
-            onPress={() => {
-              setPreviewFontSize(prev => Math.min(FONT_SIZE_MAX, prev + 2));
-              changeFontSize(2);
-            }}
-            disabled={previewFontSize >= FONT_SIZE_MAX}
-            accessibilityLabel={t.maxFontSizeReached}
-          />
-        </View>
-      </View>
-
-      {/* Highlight color */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.defaultHighlightColor}</Text>
-        <View style={styles.colorRow}>
-          {HIGHLIGHT_COLORS.map((color) => (
-            <IconButton
-              key={color}
-              onPress={() => changeHighlightColor(color)}
-              accessibilityLabel={`${t.defaultHighlightColor} ${color}`}
-              style={[
-                styles.colorSwatch,
-                highlightColor === color && styles.colorSwatchSelected,
-                { padding: 0 }
-              ]}
-            >
-              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color }} />
-            </IconButton>
-          ))}
-        </View>
-      </View>
-
-      {/* Storage Usage */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.storageUsage}</Text>
-        <View style={styles.storageRow}>
-          <Text style={styles.usageText}>{formatBytes(cacheSize)}</Text>
-          <IconButton 
-            label={t.clearCache} 
-            onPress={handleClearCache} 
-            color={colors.error} 
-            accessibilityRole="button" 
-            accessibilityLabel={t.clearCache} 
-          />
-        </View>
-      </View>
-
-      {/* About Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.about}</Text>
-        <View style={styles.aboutContent}>
-          <Text style={styles.aboutText}>{t.appDescription}</Text>
-          <View style={styles.aboutRow}>
-            <Text style={styles.aboutLabel}>{t.version}</Text>
-            <Text style={styles.aboutValue}>{APP_VERSION}</Text>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Language */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.language}</Text>
+            <SegmentedControl
+              options={LANGUAGES.map(l => ({
+                key: l.key,
+                label: l.label,
+                icon: 'language-outline' as const
+              }))}
+              value={lang}
+              onChange={(newLang: Lang) => {
+                setLang(newLang);
+                const langLabel = LANGUAGES.find(l => l.key === newLang)?.label || newLang;
+                AccessibilityInfo.announceForAccessibility(`${t.settings.language}: ${langLabel}`);
+              }}
+            />
           </View>
-          <TouchableOpacity 
-            style={styles.aboutRow} 
-            onPress={() => Linking.openURL(APP_README)}
-            accessibilityRole="link"
-            accessibilityLabel={t.readme}
-          >
-            <Text style={[styles.aboutLabel, styles.linkText]}>{t.readme}</Text>
-            <IconButton name="document-text-outline" size={16} color={colors.primary} passive />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.aboutRow, { marginTop: 8 }]} 
-            onPress={() => Linking.openURL(GITHUB_URL)}
-            accessibilityRole="link"
-            accessibilityLabel={t.github}
-          >
-            <Text style={[styles.aboutLabel, styles.linkText]}>{t.github}</Text>
-            <IconButton name="logo-github" size={16} color={colors.primary} passive />
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* Last Synced (Phase 3 Placeholder) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t.lastSynced}</Text>
-        <TouchableOpacity 
-          style={[styles.storageRow, { borderTopWidth: 1, borderTopColor: colors.borderLight }]}
-          onPress={() => AccessibilityInfo.announceForAccessibility(t.notAvailablePhase3)}
-          accessibilityRole="button"
-        >
-          <Text style={styles.usageText}>{t.notAvailablePhase3}</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Theme */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.theme}</Text>
+            <SegmentedControl
+              options={[
+                { key: 'system', icon: 'settings-outline' },
+                { key: 'light', icon: 'sunny-outline' },
+                { key: 'dark', icon: 'moon-outline' },
+                { key: 'sepia', icon: 'color-filter-outline' },
+                { key: 'high-contrast', icon: 'contrast-outline' },
+              ]}
+              value={themeMode}
+              onChange={setThemeMode}
+              accessibilityLabel={t.settings.theme}
+            />
+          </View>
 
-      {/* Reset Section */}
-      <IconButton
-        label={t.resetToDefaults}
-        variant="outlined"
-        color={colors.error}
-        style={styles.resetBtn}
-        onPress={() => {
-          Alert.alert(t.resetToDefaults, t.confirmDelete, [
-            { text: t.cancel, style: 'cancel' },
-            { 
-              text: t.resetToDefaults,
-              style: 'destructive', 
-              onPress: resetToDefaults 
-            }
-          ]);
-        }}
-      />
+          {/* Typography & Preview Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.typography}</Text>
+            
+            <SegmentedControl
+              options={['serif', 'sans-serif'] as const}
+              value={fontFamily}
+              onChange={setFontFamily}
+              getLabel={(val) => val === 'serif' ? t.settings.serif : t.settings.sansSerif}
+              accessibilityLabel={t.settings.fontFamily}
+              size="small"
+            />
 
-      <View style={{ height: 40 }} />
-      </ScrollView>
+            <View style={styles.previewContainer}>
+              <Text style={styles.previewText}>
+                {t.settings.typographyPreview}
+              </Text>
+            </View>
+
+            <View style={styles.fontSizeRow}>
+              <IconButton
+                label="A−"
+                style={[styles.fontBtn, previewFontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
+                onPress={() => {
+                  setPreviewFontSize(prev => Math.max(FONT_SIZE_MIN, prev - 2));
+                  changeFontSize(-2);
+                }}
+                disabled={previewFontSize <= FONT_SIZE_MIN}
+                accessibilityLabel={t.reader.minFontSizeReached}
+              />
+              <Text style={[styles.fontSizeValue, { fontSize: previewFontSize }]}>Aa</Text>
+              <IconButton
+                label="A+"
+                style={[styles.fontBtn, previewFontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
+                onPress={() => {
+                  setPreviewFontSize(prev => Math.min(FONT_SIZE_MAX, prev + 2));
+                  changeFontSize(2);
+                }}
+                disabled={previewFontSize >= FONT_SIZE_MAX}
+                accessibilityLabel={t.reader.maxFontSizeReached}
+              />
+            </View>
+          </View>
+
+          {/* Highlight color */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.defaultHighlightColor}</Text>
+            <View style={styles.colorRow}>
+              {HIGHLIGHT_COLORS.map((color) => (
+                <IconButton
+                  key={color}
+                  onPress={() => changeHighlightColor(color)}
+                  accessibilityLabel={`${t.settings.defaultHighlightColor} ${color}`}
+                  style={[
+                    styles.colorSwatch,
+                    highlightColor === color && styles.colorSwatchSelected,
+                    { padding: 0 }
+                  ]}
+                >
+                  <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color }} />
+                </IconButton>
+              ))}
+            </View>
+          </View>
+
+          {/* Storage Usage */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.storageUsage}</Text>
+            <View style={styles.storageRow}>
+              <Text style={styles.usageText}>{formatBytes(cacheSize)}</Text>
+              <IconButton
+                label={t.settings.clearCache}
+                onPress={handleClearCache}
+                color={colors.error}
+                accessibilityRole="button"
+                accessibilityLabel={t.settings.clearCache}
+              />
+            </View>
+          </View>
+
+          {/* About Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.settings.about}</Text>
+            <View style={styles.aboutContent}>
+              <Text style={styles.aboutText}>{t.settings.appDescription}</Text>
+              <View style={styles.aboutRow}>
+                <Text style={styles.aboutLabel}>{t.settings.version}</Text>
+                <Text style={styles.aboutValue}>{APP_VERSION}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.aboutRow}
+                onPress={() => Linking.openURL(APP_README)}
+                accessibilityRole="link"
+                accessibilityLabel={t.settings.readme}
+              >
+                <Text style={[styles.aboutLabel, styles.linkText]}>{t.settings.readme}</Text>
+                <IconButton name="document-text-outline" size={16} color={colors.primary} passive />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.aboutRow, { marginTop: 8 }]}
+                onPress={() => Linking.openURL(GITHUB_URL)}
+                accessibilityRole="link"
+                accessibilityLabel={t.settings.github}
+              >
+                <Text style={[styles.aboutLabel, styles.linkText]}>{t.settings.github}</Text>
+                <IconButton name="logo-github" size={16} color={colors.primary} passive />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Last Synced (Phase 3 Placeholder) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t.articles.lastSynced}</Text>
+            <TouchableOpacity
+              style={[styles.storageRow, { borderTopWidth: 1, borderTopColor: colors.borderLight }]}
+              onPress={() => AccessibilityInfo.announceForAccessibility(t.common.notAvailablePhase3)}
+              accessibilityRole="button"
+            >
+              <Text style={styles.usageText}>{t.common.notAvailablePhase3}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Reset Section */}
+          <IconButton
+            label={t.settings.resetToDefaults}
+            variant="outlined"
+            color={colors.error}
+            style={styles.resetBtn}
+            onPress={() => {
+              Alert.alert(t.settings.resetToDefaults, t.common.confirmDelete, [
+                { text: t.common.cancel, style: 'cancel' },
+                {
+                  text: t.settings.resetToDefaults,
+                  style: 'destructive',
+                  onPress: resetToDefaults
+                }
+              ]);
+            }}
+          />
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </SafeAreaView>
     </Animated.View>
   );

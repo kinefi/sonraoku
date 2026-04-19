@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, useContext } from 'react';
 import {
   View,
   StyleSheet,
   Animated,
+  ActivityIndicator,
   AccessibilityInfo,
   Text,
 } from 'react-native';
@@ -10,29 +11,26 @@ import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { useArticleSpeech, useArticleSettings, useArticleActions } from '../../lib/hooks';
-import { queryClient } from '../../lib/queryClient';
+import { useArticleSpeech, useArticleSettings, useArticleActions, useThemeTransition } from '@/lib/hooks';
+import { queryClient, ParseQueueContext } from '@/lib/reader';
 import {
   getArticleById, markArticleRead,
   getHighlightsByArticle, getTagsForArticle,
-} from '../../lib/db';
-import { sharedStyles, spacing, borderRadius, typography } from '../../lib/theme';
-import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../../lib/themeContext';
-import { TIMEOUTS } from '../../lib/constants';
-import ReaderView from '../../components/ReaderView';
-import { useLanguage } from '../../lib/languageContext';
-import ArticleMetaHeader from '../../components/ArticleMetaHeader';
-import HighlightsModal from '../../components/HighlightsModal';
-import TagsModal from '../../components/TagsModal';
-import ArticleFallback from '../../components/ArticleFallback';
-import ReaderFabPill from '../../components/ReaderFabPill';
-import IconButton from '../../components/IconButton';
+} from '@/lib/db';
+import { sharedStyles, spacing, borderRadius, typography, useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
+import { TIMEOUTS } from '@/lib/constants';
+import { ReaderView, ArticleMetaHeader, HighlightsModal, TagsModal, ArticleFallback, ReaderFabPill, IconButton } from '@/components';
+import { useLanguage } from '@/lib/language';
 
 export default function ArticleScreen() {
   const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
   const { t } = useLanguage();
   const { fontSize, fontFamily, changeFontSize, defaultColor, colors } = useArticleSettings();
   const { isDark } = useTheme();
+  
+  const { parseQueue } = useContext(ParseQueueContext) as any;
+  const isCurrentlyParsing = useMemo(() => parseQueue?.some((item: any) => item.id === id), [parseQueue, id]);
+
   const scrollProgress = useRef(new Animated.Value(0)).current;
   const [readerHeight, setReaderHeight] = useState(0);
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -40,37 +38,18 @@ export default function ArticleScreen() {
   const [showTags, setShowTags] = useState(false);
   const [newTag, setNewTag] = useState('');
   const [targetHighlightId, setTargetHighlightId] = useState<string | null>(null);
+  const [preservedProgress, setPreservedProgress] = useState(0);
 
-  // Animation for background color transition
-  const bgColorAnim = useRef(new Animated.Value(0)).current;
-  const [prevColor, setPrevColor] = useState(colors.white);
-  const [currColor, setCurrColor] = useState(colors.white);
-
-  useEffect(() => {
-    if (colors.white !== currColor) {
-      setPrevColor(currColor);
-      setCurrColor(colors.white);
-      bgColorAnim.setValue(0);
-      Animated.timing(bgColorAnim, {
-        toValue: 1,
-        duration: TIMEOUTS.THEME_TRANSITION,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [colors.white, bgColorAnim, currColor]);
-
-  const animatedBgColor = bgColorAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [prevColor, currColor],
-  });
+  // Use custom hook for smooth background color transition
+  const animatedBgColor = useThemeTransition(colors.bgPage);
 
   const prevFontSize = useRef(fontSize);
   useEffect(() => {
     if (fontSize !== prevFontSize.current) {
       if (fontSize >= FONT_SIZE_MAX) {
-        AccessibilityInfo.announceForAccessibility(t.maxFontSizeReached);
+        AccessibilityInfo.announceForAccessibility(t.reader.maxFontSizeReached);
       } else if (fontSize <= FONT_SIZE_MIN) {
-        AccessibilityInfo.announceForAccessibility(t.minFontSizeReached);
+        AccessibilityInfo.announceForAccessibility(t.reader.minFontSizeReached);
       }
       prevFontSize.current = fontSize;
     }
@@ -84,14 +63,17 @@ export default function ArticleScreen() {
     }
   }, [highlightId]);
 
-  const { data: article } = useQuery({
+  const { data: article, isLoading } = useQuery({
     queryKey: ['article', id],
-    queryFn: () => getArticleById(id!),
+    queryFn: async () => {
+      const { data } = await getArticleById(id!);
+      return data;
+    },
     enabled: !!id,
   });
 
   const { isSpeaking, toggleSpeech } = useArticleSpeech(article?.html_content || null, article?.lang || null);
-  
+
   const {
     isFetching,
     fetchStatus,
@@ -101,33 +83,44 @@ export default function ArticleScreen() {
     handleRemoveTag,
     handleToggleFavorite,
     handleReaderMessage,
+    handleDeleteHighlight,
   } = useArticleActions(article?.id, article?.url, article?.title);
 
   useEffect(() => {
     if (article && !article.is_read) {
       markArticleRead(article.id);
-      AccessibilityInfo.announceForAccessibility(t.markAsRead);
+      AccessibilityInfo.announceForAccessibility(t.articles.markAsRead);
       queryClient.setQueryData(['article', article.id], { ...article, is_read: 1 });
       queryClient.invalidateQueries({ queryKey: ['articles'] });
     }
-  }, [article, article?.id, article?.is_read, t.markAsRead]);
+  }, [article, article?.id, article?.is_read, t.articles.markAsRead]);
 
 
   const { data: highlights = [] } = useQuery({
     queryKey: ['highlights', id],
-    queryFn: () => getHighlightsByArticle(id!),
+    queryFn: async () => {
+      const { data } = await getHighlightsByArticle(id!);
+      return data || [];
+    },
     enabled: !!id,
   });
 
   const { data: tags = [] } = useQuery({
     queryKey: ['tags', id],
-    queryFn: () => getTagsForArticle(id!),
+    queryFn: async () => {
+      const { data } = await getTagsForArticle(id!);
+      return data || [];
+    },
     enabled: !!id,
   });
 
   const handleScrollProgress = useCallback((progress: number) => {
     scrollProgress.setValue(progress);
     setCurrentProgress(progress);
+    // Periodically update preserved progress for state restoration
+    if (Math.abs(progress - preservedProgress) > 0.05) {
+      setPreservedProgress(progress);
+    }
   }, [scrollProgress]);
 
   const handleAddTag = useCallback(() => {
@@ -152,7 +145,7 @@ export default function ArticleScreen() {
       top: 0,
       bottom: 0,
       width: 4,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+      backgroundColor: colors.borderLight,
     },
     scrollFill: {
       position: 'absolute',
@@ -190,110 +183,120 @@ export default function ArticleScreen() {
     },
   }), [colors, isDark]);
 
-  if (!article) return null;
+  // Show loading if fetching record, if record missing, or if content is missing and we are still parsing it
+  if (isLoading || !article || (isCurrentlyParsing && !article.html_content)) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: animatedBgColor }]}>
       <SafeAreaView style={{ flex: 1 }}>
-      <ArticleMetaHeader article={article} />
+        <ArticleMetaHeader article={article} />
 
-      {/* Content */}
-      {article.html_content ? (
-        <View
-          style={styles.readerWrapper}
-          onLayout={(e) => setReaderHeight(e.nativeEvent.layout.height)}
-        >
-          <ReaderView
-            html={article.html_content}
-            title={article.title ?? ''}
-            fontSize={fontSize}
-            fontFamily={fontFamily}
-            defaultColor={defaultColor}
-            highlights={highlights}
-            onMessage={handleReaderMessage}
-            onScrollProgress={handleScrollProgress}
-            scrollToHighlightId={targetHighlightId}
-          />
-          <View style={styles.scrollTrack}>
-            <Animated.View style={[styles.scrollFill, { height: scrollFillHeight }]} />
+        {/* Content */}
+        {article.html_content ? (
+          <View
+            style={styles.readerWrapper}
+            onLayout={(e) => setReaderHeight(e.nativeEvent.layout.height)}
+          >
+            <ReaderView
+              key={article.id}
+              html={article.html_content}
+              title={article.title ?? ''}
+              fontSize={fontSize}
+              fontFamily={fontFamily}
+              defaultColor={defaultColor}
+              highlights={highlights}
+              onMessage={handleReaderMessage}
+              onScrollProgress={handleScrollProgress}
+              scrollToHighlightId={targetHighlightId}
+              initialProgress={preservedProgress}
+            />
+            <View style={styles.scrollTrack}>
+              <Animated.View style={[styles.scrollFill, { height: scrollFillHeight }]} />
+            </View>
           </View>
-        </View>
-      ) : (
-        <ArticleFallback
-          title={article.title}
-          url={article.url}
+        ) : (
+          <ArticleFallback
+            title={article.title}
+            url={article.url}
+            isFetching={isFetching || isCurrentlyParsing}
+            fetchStatus={fetchStatus || 'idle'}
+            onFetchAgain={handleFetchAgain}
+          />
+        )}
+
+        {article.html_content && (
+          <View style={styles.rightFab}>
+            <Text style={styles.progressText}>{Math.round(currentProgress * 100)}%</Text>
+            <IconButton
+              label="A+"
+              onPress={() => {
+                Haptics.selectionAsync();
+                changeFontSize(2);
+              }}
+              disabled={fontSize >= FONT_SIZE_MAX}
+              size={16}
+              style={styles.sideActionBtn}
+            />
+            <IconButton
+              label="A−"
+              onPress={() => {
+                Haptics.selectionAsync();
+                changeFontSize(-2);
+              }}
+              disabled={fontSize <= FONT_SIZE_MIN}
+              size={16}
+              style={styles.sideActionBtn}
+            />
+          </View>
+        )}
+
+        <ReaderFabPill
+          onBack={() => router.back()}
+          onToggleHighlights={() => setShowHighlights(true)}
+          onToggleTags={() => setShowTags(true)}
+          isSpeaking={isSpeaking}
+          onToggleSpeech={toggleSpeech}
+          onShare={handleShare}
           isFetching={isFetching}
-          fetchStatus={fetchStatus || 'idle'}
-          onFetchAgain={handleFetchAgain}
+          onRefresh={handleFetchAgain}
+          hasContent={!!article.html_content}
+          isFavorite={!!article.is_favorite}
+          onFavoriteToggle={() => handleToggleFavorite(!article.is_favorite)}
         />
-      )}
 
-      {article.html_content && (
-        <View style={styles.rightFab}>
-          <Text style={styles.progressText}>{Math.round(currentProgress * 100)}%</Text>
-          <IconButton
-            label="A+"
-            onPress={() => {
-              Haptics.selectionAsync();
-              changeFontSize(2);
+        {showHighlights && (
+          <HighlightsModal
+            visible={showHighlights}
+            onClose={() => setShowHighlights(false)}
+            highlights={highlights}
+            onDelete={handleDeleteHighlight}
+            defaultColor={defaultColor}
+            onSelect={(highlightId) => {
+              setTargetHighlightId(highlightId);
+              setShowHighlights(false);
+              setTimeout(() => setTargetHighlightId(null), 100);
             }}
-            disabled={fontSize >= FONT_SIZE_MAX}
-            size={16}
-            style={styles.sideActionBtn}
           />
-          <IconButton
-            label="A−"
-            onPress={() => {
-              Haptics.selectionAsync();
-              changeFontSize(-2);
-            }}
-            disabled={fontSize <= FONT_SIZE_MIN}
-            size={16}
-            style={styles.sideActionBtn}
+        )}
+
+        {showTags && (
+          <TagsModal
+            visible={showTags}
+            onClose={() => setShowTags(false)}
+            tags={tags}
+            newTag={newTag}
+            setNewTag={setNewTag}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
           />
-        </View>
-      )}
-
-      <ReaderFabPill
-        onBack={() => router.back()}
-        onToggleHighlights={() => setShowHighlights(true)}
-        onToggleTags={() => setShowTags(true)}
-        isSpeaking={isSpeaking}
-        onToggleSpeech={toggleSpeech}
-        onShare={handleShare}
-        isFetching={isFetching}
-        onRefresh={handleFetchAgain}
-        hasContent={!!article.html_content}
-        isFavorite={!!article.is_favorite}
-        onFavoriteToggle={() => handleToggleFavorite(!article.is_favorite)}
-      />
-
-      {showHighlights && (
-        <HighlightsModal
-          visible={showHighlights}
-          onClose={() => setShowHighlights(false)}
-          highlights={highlights}
-          defaultColor={defaultColor}
-          onSelect={(highlightId) => {
-            setTargetHighlightId(highlightId);
-            setShowHighlights(false);
-            setTimeout(() => setTargetHighlightId(null), 100);
-          }}
-        />
-      )}
-
-      {showTags && (
-        <TagsModal
-          visible={showTags}
-          onClose={() => setShowTags(false)}
-          tags={tags}
-          newTag={newTag}
-          setNewTag={setNewTag}
-          onAddTag={handleAddTag}
-          onRemoveTag={handleRemoveTag}
-        />
-      )}
-    </SafeAreaView>
+        )}
+      </SafeAreaView>
     </Animated.View>
   );
 }

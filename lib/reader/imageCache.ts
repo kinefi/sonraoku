@@ -1,5 +1,7 @@
 import { Paths, File, Directory } from 'expo-file-system';
-import { IMAGE_CACHE_FOLDER, TIMEOUTS } from './constants';
+import { IMAGE_CACHE_FOLDER, TIMEOUTS } from '@/lib/constants';
+
+const VALID_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif'];
 
 /**
  * Extracts all potential image URLs from HTML attributes like src, srcset, and data-src.
@@ -21,11 +23,15 @@ function extractImageUrls(html: string): string[] {
  */
 function urlToFilename(url: string, index: number): string {
   try {
-    const pathname = new URL(url).pathname;
-    const name = pathname.split('/').pop()?.split('?')[0];
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    let name = pathname.split('/').pop()?.split('?')[0];
+    
     // Keep filenames reasonably short and clean
-    if (name && name.length > 0 && name.length < 80) return `${index}_${name}`;
-  } catch { /* fall through */ }
+    if (name && name.length > 0 && name.length < 80) {
+      return `${index}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    }
+  } catch (e) { /* fall through */ }
   return `img_${index}_${Date.now()}`;
 }
 
@@ -33,6 +39,14 @@ function urlToFilename(url: string, index: number): string {
  * Downloads a single image with a timeout.
  */
 async function downloadWithTimeout(url: string, dest: File): Promise<{ uri: string }> {
+  // Basic validation: ensure it looks like an image URL
+  const lowerUrl = url.toLowerCase();
+  const hasValidExt = VALID_IMAGE_EXTENSIONS.some(ext => lowerUrl.includes(ext));
+  
+  if (!hasValidExt && !url.includes('data:image')) {
+    throw new Error('Invalid image URL or extension');
+  }
+
   const download = File.downloadFileAsync(url, dest);
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Download timed out')), TIMEOUTS.IMAGE_DOWNLOAD)
@@ -61,10 +75,16 @@ export async function cacheArticleImages(
   // Download all images in parallel (using Settled so one failure doesn't block others)
   const results = await Promise.allSettled(
     urls.map(async (url, i) => {
-      const dest = new File(dir, urlToFilename(url, i));
+      const filename = urlToFilename(url, i);
+      const dest = new File(dir, filename);
+
+      // Avoid redundant downloads if file already exists
+      if (dest.exists) {
+        return { url, localUri: dest.uri };
+      }
+
       const downloaded = await downloadWithTimeout(url, dest);
       
-      // Optional callback to save metadata to SQLite (cached_images table)
       if (onImageDownloaded) {
         onImageDownloaded(url, downloaded.uri);
       }
@@ -73,12 +93,15 @@ export async function cacheArticleImages(
     })
   );
 
+  // Filter successfully downloaded/verified images
+  const successfulDownloads = results
+    .filter((r): r is PromiseFulfilledResult<{url: string, localUri: string}> => r.status === 'fulfilled')
+    .map(r => r.value);
+
   let updatedHtml = html;
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      // Replace all occurrences of the remote URL with the local file URI
-      updatedHtml = updatedHtml.replaceAll(result.value.url, result.value.localUri);
-    }
+  for (const result of successfulDownloads) {
+    // Replace all occurrences of the remote URL with the local file URI
+    updatedHtml = updatedHtml.replaceAll(result.url, result.localUri);
   }
 
   return updatedHtml;

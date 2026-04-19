@@ -1,25 +1,25 @@
-import { useState, useEffect, useCallback, useContext } from 'react';
-import { Alert, Share } from 'react-native';
+import { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import { Alert, Share, Animated } from 'react-native';
 import * as Speech from 'expo-speech';
-import { useLanguage } from './languageContext';
-import { HighlightColor } from './theme';
+import { Highlight } from '@/lib/db/highlights';
+import { useLanguage } from '@/lib/language';
+import { HighlightColor, useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
 import { 
-  useTheme, 
-  FONT_SIZE_MIN, 
-  FONT_SIZE_MAX 
-} from './themeContext';
-import { getTotalCacheSize, clearAllImageCache } from './imageCache';
+  getTotalCacheSize, 
+  clearAllImageCache, 
+  queryClient, 
+  ParseQueueContext,
+  buildParserHtml
+} from '@/lib/reader';
 import { 
   addTagToArticle, removeTagFromArticle, 
   insertHighlight, deleteHighlight,
   toggleFavoriteArticle
-} from './db';
-import { queryClient } from './queryClient';
-import { ParseQueueContext } from './parseQueue';
-import { useToast } from './toastContext';
-import { fetchRawHtml, buildParserHtml, stripTags } from './utils';
-import { ReaderMessage } from '../components/ReaderView';
-import { TIMEOUTS } from './constants';
+} from '@/lib/db';
+import { useToast } from '@/lib/toast';
+import { fetchRawHtml, stripTags } from '@/lib/utils';
+import { ReaderMessage } from '@/types/reader';
+import { TIMEOUTS } from '@/lib/constants';
 
 export function useSettings() {
   const { t } = useLanguage();
@@ -86,6 +86,31 @@ export function useSettings() {
   };
 }
 
+/**
+ * Custom hook to handle smooth background color transitions when the theme changes.
+ */
+export function useThemeTransition(targetColor: string) {
+  const bgColorAnim = useRef(new Animated.Value(0)).current;
+  const [transitionColors, setTransitionColors] = useState({ prev: targetColor, curr: targetColor });
+
+  useEffect(() => {
+    if (targetColor !== transitionColors.curr) {
+      setTransitionColors({ prev: transitionColors.curr, curr: targetColor });
+      bgColorAnim.setValue(0);
+      Animated.timing(bgColorAnim, {
+        toValue: 1,
+        duration: TIMEOUTS.THEME_TRANSITION,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [targetColor, transitionColors.curr, bgColorAnim]);
+
+  return bgColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [transitionColors.prev, transitionColors.curr],
+  });
+}
+
 export function useArticleSettings() {
   const { fontSize, changeFontSize, highlightColor } = useSettings();
   const { fontFamily, colors } = useTheme();
@@ -149,9 +174,9 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     try {
       const html = await fetchRawHtml(url);
       addToQueue({ id: articleId, url, html: buildParserHtml(html, url, {
-        timeout: t.internalSafetyTimeout,
-        noContent: t.noContent,
-        unknownError: t.parseError,
+        timeout: t.errors.internalSafetyTimeout,
+        noContent: t.articles.noContent,
+        unknownError: t.errors.parseError,
       }), retries: 0 });
       setFetchStatus('success');
     } catch (e) {
@@ -167,48 +192,89 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     if (!url) return;
     try {
       await Share.share({
-        title: title || t.appName,
+        title: title || t.common.appName,
         message: url,
       });
     } catch (e) {
       console.error(e);
     }
-  }, [url, title, t.appName]);
+  }, [url, title, t.common.appName]);
 
   const handleAddTag = useCallback(async (tagName: string) => {
     if (!articleId || !tagName.trim()) return;
-    await addTagToArticle(articleId, tagName);
+    const { error } = await addTagToArticle(articleId, tagName);
+    if (error) {
+      showToast({ message: t.errors.parseError, type: 'error' });
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
-    showToast({ message: t.tagAdded, type: 'success' });
+    queryClient.invalidateQueries({ queryKey: ['tags', 'all'] });
+    showToast({ message: t.tags.added, type: 'success' });
   }, [articleId, t, showToast]);
 
   const handleRemoveTag = useCallback(async (tagName: string) => {
     if (!articleId) return;
-    await removeTagFromArticle(articleId, tagName);
+    const { error } = await removeTagFromArticle(articleId, tagName);
     queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
-  }, [articleId]);
+  }, [articleId, queryClient]);
 
   const handleToggleFavorite = useCallback(async (isFavorite: boolean) => {
     if (!articleId) return;
-    await toggleFavoriteArticle(articleId, isFavorite);
+    const { error } = await toggleFavoriteArticle(articleId, isFavorite);
     queryClient.invalidateQueries({ queryKey: ['articles'] });
     queryClient.invalidateQueries({ queryKey: ['article', articleId] });
     showToast({ 
-      message: isFavorite ? t.favorited : t.unfavorited, 
+      message: isFavorite ? t.articles.favorited : t.articles.unfavorited, 
       type: 'success' 
     });
   }, [articleId, t, showToast]);
 
+  const handleDeleteHighlight = useCallback(async (highlightId: string) => {
+    if (!articleId) return;
+    
+    // Optimistically update the cache
+    queryClient.setQueryData(['highlights', articleId], (old: Highlight[] | undefined) => {
+      return old ? old.filter(h => h.id !== highlightId) : [];
+    });
+
+    const { error } = await deleteHighlight(highlightId);
+    if (error) {
+      console.error('Delete highlight error:', error);
+      showToast({ message: t.errors.parseError, type: 'error' });
+      // Rollback on error
+      queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
+  }, [articleId, t.errors.parseError, showToast]);
+
   const handleReaderMessage = useCallback(async (msg: ReaderMessage) => {
     if (!articleId) return;
     if (msg.type === 'highlight') {
-      await insertHighlight(msg.id, articleId, msg.text, msg.contextBefore, msg.contextAfter);
-      queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
+      // Optimistically add the highlight to the cache
+      const newHighlight: Highlight = {
+        id: msg.id,
+        article_id: articleId,
+        selected_text: msg.text,
+        context_before: msg.contextBefore,
+        context_after: msg.contextAfter,
+        created_at: Date.now(),
+      };
+
+      queryClient.setQueryData(['highlights', articleId], (old: Highlight[] | undefined) => {
+        return old ? [...old, newHighlight] : [newHighlight];
+      });
+
+      const { error } = await insertHighlight(msg.id, articleId, msg.text, msg.contextBefore, msg.contextAfter);
+      if (error) {
+        console.error('Highlight error:', error);
+        // Rollback on error
+        queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
+      }
     } else if (msg.type === 'delete-highlight') {
-      await deleteHighlight(msg.id);
-      queryClient.invalidateQueries({ queryKey: ['highlights', articleId] });
+      await handleDeleteHighlight(msg.id);
     }
-  }, [articleId]);
+  }, [articleId, handleDeleteHighlight, queryClient]);
 
   return {
     isFetching,
@@ -219,5 +285,6 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     handleRemoveTag,
     handleToggleFavorite,
     handleReaderMessage,
+    handleDeleteHighlight,
   };
 }

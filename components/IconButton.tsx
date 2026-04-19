@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, TouchableOpacityProps, StyleSheet, Text, ActivityIndicator, View, TextStyle, ViewProps, StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../lib/themeContext';
-import { spacing, borderRadius, typography } from '../lib/theme';
+import { useTheme, spacing, borderRadius, typography } from '@/lib/theme';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -28,14 +27,45 @@ export default function IconButton({ name, label, size = 24, color, style, child
 
   const Container = (passive ? View : TouchableOpacity) as React.ElementType;
 
+  const styles = useMemo(() => StyleSheet.create({
+    base: {
+      padding: spacing.xs,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    filled: {
+      backgroundColor: themeColor,
+      padding: spacing.lg,
+      borderRadius: borderRadius.xl,
+    },
+    outlined: {
+      borderWidth: 1,
+      borderColor: themeColor,
+      padding: spacing.sm,
+      borderRadius: borderRadius.lg,
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: typography.weights.bold,
+      textAlign: 'center',
+    },
+  }), [themeColor, colors]);
+
   return (
     <Container
+      accessibilityLabel={props.accessibilityLabel || label}
+      accessibilityRole={props.accessibilityRole || (passive ? undefined : 'button')}
+      accessibilityState={props.accessibilityState || { disabled: isDisabled }}
+      importantForAccessibility={passive ? 'no-hide-descendants' : 'yes'}
       {...(!passive && { activeOpacity: 0.7 })}
       style={[
         styles.base,
-        isFilled && { backgroundColor: themeColor, padding: spacing.lg, borderRadius: borderRadius.xl },
-        isOutlined && { borderWidth: 1, borderColor: themeColor, padding: spacing.sm, borderRadius: borderRadius.lg },
-        isDisabled && { opacity: 0.5 },
+        isFilled && styles.filled,
+        isOutlined && styles.outlined,
+        isDisabled && styles.disabled,
         style
       ]}
       {...props}
@@ -51,16 +81,3 @@ export default function IconButton({ name, label, size = 24, color, style, child
     </Container>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    padding: spacing.xs,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: typography.weights.bold,
-    textAlign: 'center',
-  },
-});

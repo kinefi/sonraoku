@@ -1,10 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { sharedStyles, spacing, borderRadius, typography } from '../lib/theme';
-import { useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '../lib/themeContext';
+import { useTheme, sharedStyles, spacing, borderRadius, typography } from '@/lib/theme';
 import IconButton from './IconButton';
-import { useLanguage } from '../lib/languageContext';
+import { useLanguage } from '@/lib/language';
 
 type Props = {
   onBack: () => void;
@@ -119,9 +118,9 @@ export default function ReaderFabPill({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onFavoriteToggle?.();
                 }}
-                color={isFavorite ? colors.primary : colors.textSecondary}
+                // Color override removed to match other action buttons (standard purple)
                 style={styles.fabActionBtn}
-                accessibilityLabel={isFavorite ? t.unfavorited : t.favorited}
+                accessibilityLabel={isFavorite ? t.articles.unfavorited : t.articles.favorited}
               />
               <IconButton
                 name="bookmarks-outline"
@@ -130,6 +129,7 @@ export default function ReaderFabPill({
                   onToggleHighlights();
                 }}
                 style={styles.fabActionBtn}
+                accessibilityLabel={t.nav.highlights}
               />
               <IconButton
                 name="pricetag-outline"
@@ -138,6 +138,7 @@ export default function ReaderFabPill({
                   onToggleTags();
                 }}
                 style={styles.fabActionBtn}
+                accessibilityLabel={t.nav.tags}
               />
 
               <VerticalDivider color={colors.border} />
@@ -158,6 +159,7 @@ export default function ReaderFabPill({
                 name="share-social-outline"
                 onPress={onShare}
                 style={styles.fabActionBtn}
+                accessibilityLabel={t.common.share}
               />
             </>
           )}

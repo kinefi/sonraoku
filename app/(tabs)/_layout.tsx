@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { useTheme } from '../../lib/themeContext';
-import { useLanguage } from '../../lib/languageContext';
-import IconButton from '../../components/IconButton';
+import { useTheme } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
+import { IconButton } from '@/components';
 
 export default function TabsLayout() {
   const { t } = useLanguage();
@@ -13,7 +13,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: { 
-          backgroundColor: colors.white,
+          backgroundColor: colors.bgPage,
           borderTopColor: colors.border,
         },
         headerShown: false,
@@ -22,7 +22,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t.readingList,
+          title: t.nav.readingList,
           tabBarIcon: ({ color, size }) => (
             <IconButton name="list-outline" size={size} color={color} passive style={{ padding: 0 }} />
           ),
@@ -31,7 +31,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tags"
         options={{
-          title: t.tags,
+          title: t.nav.tags,
           tabBarIcon: ({ color, size }) => (
             <IconButton name="pricetags-outline" size={size} color={color} passive style={{ padding: 0 }} />
           ),
@@ -40,7 +40,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="highlights"
         options={{
-          title: t.highlights,
+          title: t.nav.highlights,
           tabBarIcon: ({ color, size }) => (
             <IconButton name="bookmarks-outline" size={size} color={color} passive style={{ padding: 0 }} />
           ),
@@ -49,7 +49,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: t.settings,
+          title: t.nav.settings,
           tabBarIcon: ({ color, size }) => (
             <IconButton name="settings-outline" size={size} color={color} passive style={{ padding: 0 }} />
           ),

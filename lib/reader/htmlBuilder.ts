@@ -1,5 +1,5 @@
 import readabilitySource from '@mozilla/readability/Readability.js';
-import { TIMEOUTS } from './constants';
+import { TIMEOUTS } from '../constants';
 
 function stripHeavyTags(html: string): string {
   return html
