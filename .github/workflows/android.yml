@@ -2,46 +2,178 @@ name: "Android"
 
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      skip_versioning:
+        description: 'Skip version bump'
+        type: boolean
+        default: false
 
-# https://github.com/expo/expo-github-action#publish-on-any-push-to-main
+env:
+  # Enable Gradle Configuration Cache and Parallel execution globally for the runner
+  GRADLE_OPTS: -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
+  # Bypass pnpm minimum release age violation for fresh packages
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE: 0
+
 jobs:
-  build-android:
-    name: Build Android
+  versioning:
+    name: Versioning
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.currenttag.outputs.tag }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Bump Version
+        if: ${{ github.event.inputs.skip_versioning != 'true' }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          pnpm release --release-as ${{ github.event.inputs.bump }}
+          git push --follow-tags
+      - uses: WyriHaximus/github-action-get-previous-tag@v1
+        id: currenttag
+
+  lint-and-typecheck:
+    name: Lint and Type Check
+    needs: versioning # Ensure versioning is done first
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.versioning.outputs.tag }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Lockfile Deduplication
+        # This ensures no one commits a bloated lockfile with redundant versions
+        run: pnpm dedupe --check
+
+      - name: Run ESLint
+        run: pnpm lint
+
+      - name: Security Audit
+        # Only fail for high or critical vulnerabilities to keep CI stable
+        run: pnpm audit --audit-level high
+
+      - name: Run TypeScript Check
+        run: pnpm type-check
+
+  build:
+    name: Build ${{ matrix.type }}
+    needs: [versioning, lint-and-typecheck]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - type: AAB
+            script: build:android:ci
+            pattern: build-*.aab
+          - type: APK
+            script: build:apk:ci
+            pattern: build-*.apk
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.versioning.outputs.tag }}
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: 21
           distribution: temurin
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'pnpm'
+      
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-overwrite-existing: true
+
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+
       - name: Install dependencies
-        run: pnpm install
-      - name: Build package
-        run: pnpm build:android:ci
-      - uses: WyriHaximus/github-action-get-previous-tag@v1
-        id: currenttag
-      - name: Rename AAB
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Artifact
+        run: pnpm ${{ matrix.script }}
+
+      - name: Rename Artifacts
         run: |
-          AAB_FILE=$(ls build-*.aab 2>/dev/null | head -n 1)
-          if [ -f "$AAB_FILE" ]; then
-            mv "$AAB_FILE" "sonraoku-${{ steps.currenttag.outputs.tag }}.aab"
-          else
-            echo "Error: No build-*.aab file found to rename."
-            exit 1
-          fi
+          ORIGINAL_FILE=$(ls ${{ matrix.pattern }} 2>/dev/null | head -n 1)
+          EXTENSION="${{ matrix.type == 'AAB' && 'aab' || 'apk' }}"
+          mv "$ORIGINAL_FILE" "sonraoku-${{ needs.versioning.outputs.tag }}.$EXTENSION"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.type }}
+          path: sonraoku-${{ needs.versioning.outputs.tag }}.*
+
+  release:
+    name: Create Release
+    needs: [versioning, build, lint-and-typecheck]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
-          files: sonraoku-${{ steps.currenttag.outputs.tag }}.aab
-          tag_name: ${{ steps.currenttag.outputs.tag }}
+          files: |
+            sonraoku-${{ needs.versioning.outputs.tag }}.aab
+            sonraoku-${{ needs.versioning.outputs.tag }}.apk
+          tag_name: ${{ needs.versioning.outputs.tag }}
