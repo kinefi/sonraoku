@@ -6,40 +6,37 @@ import {
   StyleSheet,
   StatusBar,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Animated,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
-import { getArticles, archiveAllReadArticles, Article } from '@/lib/db';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { Article } from '@/lib/db';
 import { useLanguage } from '@/lib/language';
-import { queryClient } from '@/lib/reader';
 import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
-import { ARTICLES_PAGE_SIZE } from '@/lib/constants';
-import { useThemeTransition } from '@/lib/hooks';
+import { useThemeTransition, useReadingList, useDeduplicatedInfiniteData } from '@/lib/hooks';
 import { 
   SwipeableArticleCard, 
   SaveUrlSheet, 
   FabGroup, 
   SearchBar, 
-  IconButton 
+  IconButton,
+  EmptyState
 } from '@/components';
-import { useToast } from '@/lib/toast';
 
 type Filter = 'all' | 'unread' | 'favorites' | 'offline' | 'archived';
 
 export default function Index() {
-  const { tag } = useLocalSearchParams<{ tag?: string }>();
-  const [filter, setFilter] = useState<Filter>('all');
-  const [showSheet, setShowSheet] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const { t, translate } = useLanguage();
   const { colors, isDark } = useTheme();
-  const { showToast } = useToast();
+  const [showSheet, setShowSheet] = useState(false);
+  
+  const {
+    data, fetchNextPage, hasNextPage, isFetchingNextPage, refetch, isFetching,
+    filter, setFilter, searchQuery, setSearchQuery, tag, handleArchiveAllRead
+  } = useReadingList();
 
   // Smooth theme transition for the main list background
   const animatedBgColor = useThemeTransition(colors.bgPage);
@@ -52,53 +49,9 @@ export default function Index() {
     { key: 'archived', label: t.articles.archived },
   ], [t]);
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    refetch,
-    isFetching,
-  } = useInfiniteQuery({
-    queryKey: ['articles', filter, searchQuery, tag],
-    queryFn: async ({ pageParam }) => {
-      const res = await getArticles(ARTICLES_PAGE_SIZE, pageParam, filter, searchQuery, tag);
-      if (res.error) throw res.error;
-      return res.data || [];
-    },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      return (lastPage?.length || 0) < ARTICLES_PAGE_SIZE ? undefined : allPages.length * ARTICLES_PAGE_SIZE;
-    },
-  });
-
-  const filtered = useMemo(() => {
-    const allItems = data?.pages.flat() ?? [];
-    // Deduplicate by ID to prevent "unique key" warnings during pagination shifts
-    const seen = new Set();
-    return allItems.filter((item) => {
-      if (!item || !item.id || seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-  }, [data?.pages]);
+  const filtered = useDeduplicatedInfiniteData(data?.pages);
 
   const hasReadArticles = filtered.some((a) => a.is_read === 1);
-
-  const handleArchiveAllRead = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(t.articles.archiveAllRead, t.articles.confirmArchiveRead, [
-      { text: t.common.back, style: 'cancel' },
-      {
-        text: t.articles.archiveAllRead,
-        onPress: async () => {
-          await archiveAllReadArticles();
-          queryClient.invalidateQueries({ queryKey: ['articles'] });
-          showToast({ message: t.articles.articlesArchived, type: 'success' });
-        },
-      },
-    ]);
-  };
 
   const renderArticleItem = useCallback(({ item }: { item: Article }) => (
     <SwipeableArticleCard 
@@ -273,10 +226,11 @@ export default function Index() {
             ) : null
           }
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t.articles.noArticles}</Text>
-              <Text style={styles.emptyHint}>{t.articles.noArticlesHint}</Text>
-            </View>
+            <EmptyState 
+              icon="document-text-outline"
+              title={t.articles.noArticles}
+              description={t.articles.noArticlesHint}
+            />
           }
         />
 

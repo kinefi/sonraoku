@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Text } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useTheme, sharedStyles, spacing, borderRadius, typography } from '@/lib/theme';
-import IconButton from './IconButton';
+import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
+import IconButton from '@/components/common/IconButton';
 import { useLanguage } from '@/lib/language';
 
 type Props = {

@@ -16,7 +16,7 @@ import { queryClient, buildParserHtml, useParseQueue } from '@/lib/reader';
 import { insertArticle } from '@/lib/db';
 import { fetchRawHtml } from '@/lib/utils';
 import { useLanguage } from '@/lib/language';
-import IconButton from './IconButton';
+import IconButton from '@/components/common/IconButton';
 
 type Props = {
   visible: boolean;

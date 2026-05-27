@@ -1,4 +1,4 @@
-import { tr } from './tr';
+import { tr } from '@/lib/language/tr';
 
 export const en: typeof tr = {
   common: {
@@ -22,6 +22,7 @@ export const en: typeof tr = {
     tags: 'Tags',
     settings: 'Settings',
     highlights: 'Highlights',
+    rss: 'Feeds',
   },
   settings: {
     language: 'Language',
@@ -75,14 +76,15 @@ export const en: typeof tr = {
     save: 'Save',
     invalidUrl: 'Enter a valid URL',
     urlPlaceholder: 'https://example.com/article',
-    minutesAgo: '{m}m ago',
-    hoursAgo: '{m}h ago',
-    daysAgo: '{m}d ago',
-    readTime: '{m} min read',
+    minutesAgo: '{minutes}m ago',
+    hoursAgo: '{hours}h ago',
+    daysAgo: '{days}d ago',
+    readTime: '{minutes} min read',
     swipeHint: 'Swipe left to mark as read, right to archive.',
     lastSynced: 'Last Synced',
     favorites: 'Favorites',
     unread: 'Unread',
+    sortAlpha: 'A-Z',
     untitled: 'Untitled Article',
   },
   highlights: {
@@ -100,15 +102,45 @@ export const en: typeof tr = {
   reader: {
     minFontSizeReached: 'Minimum font size',
     maxFontSizeReached: 'Maximum font size',
+    fontIncrease: 'A+',
+    fontDecrease: 'A−',
     timeout: 'Timeout',
   },
   errors: {
     imageCachingFailed: 'Failed to cache images',
     parseFailed: 'Failed to parse article',
-    retryAttempt: 'Retrying... ({n}/{max})',
+    retryAttempt: 'Retrying... ({current}/{max})',
     pageLoadError: 'Page could not be loaded',
     parseError: 'Content could not be parsed',
     resultReadError: 'Result could not be read',
     internalSafetyTimeout: 'Internal safety timeout',
-  }
+  },
+  rss: {
+    title: 'RSS Feeds',
+    addFeed: 'Add Feed',
+    searchPlaceholder: 'Search feed articles...',
+    noFeeds: 'No feeds tracked yet.',
+    syncing: 'Syncing feeds...',
+    lastSynced: 'Last synced: {time}',
+    saveToReadingList: 'Save to Reading List',
+    deleteAll: 'Delete all items',
+    markAllRead: 'Mark all as read',
+    clearRead: 'Clear read items',
+    backgroundSync: 'Background Sync',
+    backgroundSyncDesc: 'Periodically check for new articles in the background',
+    unreadOnly: 'Unread only',
+    manageFeeds: 'Manage Feeds',
+    deleteFeedConfirm: 'Are you sure you want to delete this feed and all its items?',
+    markFeedReadConfirm: 'Mark all items in this feed as read?',
+    exportOpml: 'Export OPML',
+    importOpml: 'Import OPML',
+    urlPlaceholder: 'https://example.com/rss.xml',
+    importOpmlSuccess: 'OPML imported successfully',
+    importOpmlError: 'Failed to import OPML',
+    importOpmlSummary: 'Import complete: {success} feeds added, {skipped} skipped due to errors.',
+    confirmLargeImport: 'Found {count} feeds in this file. Importing and validating them may take some time. Do you want to continue?',
+    exportOpmlError: 'Failed to export OPML',
+    undo: 'Undo',
+    itemDeleted: 'Article deleted',
+  },
 };

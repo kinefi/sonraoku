@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
-import IconButton from './IconButton';
+import IconButton from '@/components/common/IconButton';
 
 type Props = {
   visible: boolean;

@@ -4,7 +4,6 @@ import { Article } from '@/lib/db';
 import { useTheme, sharedStyles, spacing, borderRadius, typography } from '@/lib/theme';
 import { getDomain, getReadTime } from '@/lib/utils';
 import { useLanguage, LANGUAGES } from '@/lib/language';
-import IconButton from './IconButton';
 
 type Props = {
   article: Article;

@@ -31,7 +31,7 @@ The app supports Turkish and English with an in-app language switcher in setting
 - **react-native-render-html** — renders parsed article HTML in the reader screen
 - **expo-file-system** — caches article images locally for true offline reading
 - **expo-speech** — read aloud via device TTS, works offline; language detected from article `lang` attribute
-- **react-native-gesture-handler + react-native-reanimated** — swipe gestures on article cards (`Swipeable` — `ReanimatedSwipeable` is incompatible with SDK 55, do not upgrade)
+- **react-native-gesture-handler** — swipe gestures on article cards (`Swipeable`)
 - **@react-native-async-storage/async-storage** — persists reader font size preference and
   selected UI language (`'reader_font_size'` and `'app_language'` keys)
 - **expo-background-fetch + expo-task-manager** — background sync (Phase 3, not yet implemented)
@@ -260,13 +260,14 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - [x] Default font size setting in settings screen
 - [x] Metro transformer for Readability.js (replaces postinstall script)
 - [x] DB initialization moved to `useEffect` to prevent splash screen freeze
-- [X] Article search functionality to filter articles
-- [X] Show only 20 recent articles in list and load more when list pulled down
-- [X] Add article tagging mechanism
+- [x] Article search functionality to filter articles
+- [x] Show only 20 recent articles in list and load more when list pulled down
+- [x] Add article tagging mechanism
 - [x] Storage usage monitoring and cache clearing in settings
 - [x] Add git tag and versioning mechanism (commit-and-tag-version)
-- [X] Add notifications for relevant operations and errors
-- [X] Favorite articles and listing them with a filter
+- [x] Add notifications for relevant operations and errors
+- [x] Favorite articles and listing them with a filter
+- [x] Persistent Highlighting system with context-based fuzzy matching
 
 ### Phase 3 — Backend sync
 
@@ -287,14 +288,38 @@ Parameterized strings use `{key}` placeholders (e.g., `readTime: '{m} min read'`
 - Follow Rule of Hooks strictly: initialize all hooks at the top level before any conditional returns.
 - Prefer concise, readable TypeScript — no over-engineering
 - Use functional components + hooks throughout
-- Do not use `ReanimatedSwipeable` — incompatible with current SDK 55 setup
+- Do not use swipe implementations that require `react-native-reanimated` or `ReanimatedSwipeable` — incompatible with current SDK 55 setup
 - Never write hex color codes directly in components — always use `lib/theme.ts` tokens
 
 ### Coding Standards & Import Strategy
+- **SOLID Principles:**
+  - **SRP (Single Responsibility):** Hooks and modules must have one primary job. Split hardware logic (Speech), UI state (Settings), and domain actions (CRUD) into distinct hooks (e.g., `useArticleSpeech` vs `useArticleSettings`).
+  - **OCP (Open/Closed):** Themes and translations are open for extension but closed for modification.
+  - **LSP/ISP:** Keep hook interfaces small and specific.
+  - **DIP (Dependency Inversion):** Use TanStack Query as the abstraction layer between the UI and the Database.
 - **Absolute Paths:** Always use the `@/` alias for internal imports (e.g., `@/lib/db`, `@/components`).
 - **Barrel Exports:** Import from directory roots rather than specific files (e.g., `import { useTheme } from '@/lib/theme'` instead of `../lib/theme/useTheme`).
-- **No Circular Imports:** Avoid cyclic references in the same folder. Within `components/`, use relative imports (e.g., `./IconButton`) for siblings instead of the `@/components` barrel to prevent circular dependencies.
-- **i18n:** Use `translate('key', { param: value })` from `useLanguage()` for all strings requiring interpolation, rather than calling `interpolate` manually.
+- **No Circular Imports:** Avoid cyclic references. Within the `components/` directory, always use the `@/` absolute alias to target specific files (e.g., `@/components/common/IconButton`) instead of importing from the root `@/components` barrel to prevent circular dependencies.
+- **Service Layer Separation:** Database modules (`lib/db/*.ts`) should focus on raw CRUD and transactions. Complex orchestration (like OPML worker pools or multi-step validation) should reside in the `lib/reader/` or a dedicated service layer to keep the DB layer lean.
+- **i18n:** Use `translate('key', { param: value })` from `useLanguage()` for all strings requiring interpolation.
 - **Styles:** Wrap `StyleSheet.create` in `useMemo` and always spread `sharedStyles(colors)` to maintain theme consistency.
 - **Data Safety:** Use `sanitizeSqlString(s)` for all parsed web content before saving to SQLite to prevent null-byte crashes.
 - **UI Transitions:** Use `useThemeTransition(targetColor)` on root containers for smooth background animations during theme swaps.
+- **Single Source of Truth:** The SQLite database is the ultimate authority. UI state should reflect the DB via TanStack Query invalidation rather than maintaining local parallel state for domain data.
+- **Naming Conventions:**
+  - Prefix boolean variables/props with `is`, `has`, `should`, or `can` (e.g., `isSyncing`, `hasError`).
+  - Use descriptive action verbs for functions (e.g., `handleArchiveArticle` instead of `archive`).
+- **Readability & Guard Clauses:** Use early returns (guard clauses) to handle edge cases and errors at the start of functions, reducing indentation levels and cognitive load.
+- **Side-Effect Management:** Every `useEffect` that creates a subscription, interval, or event listener must provide a cleanup function in its return statement to prevent memory leaks.
+
+### Architectural Best Practices
+- **Component-Based Architecture (Expo):** Leverage functional components and hooks. Keep components atomic and reusable. UI components in `components/` should be decoupled from specific routes where possible.
+  - **Modularization:** Aim to keep components under 250 lines. If a component exceeds this, extract logical parts into custom hooks or UI parts into sub-components in the same directory.
+- **State Management (Context API vs. Query):** 
+  - Use **TanStack Query** for all domain/server data (articles, RSS items, tags).
+  - Use **Context API** for global UI state or cross-cutting concerns (Toast, i18n, Theme, Parse Queue).
+  - Use local `useState` for transient UI state (modals, search queries).
+- **TypeScript for Type Safety:** Maintain strict typing. Utilize Drizzle's `$inferSelect` for domain models. Avoid `any` at all costs. Ensure translation keys are hierarchical and type-safe.
+- **Performance Optimization:** Memoize expensive calculations and style objects. Use `useDeduplicatedInfiniteData` for infinite lists to handle background data shifts without duplicate key warnings.
+- **Authentication & Security (Phase 3 Prep):** When implementing auth, use `expo-secure-store` for JWTs. Maintain SQL injection prevention via Drizzle's parameterization and the `sanitizeSqlString` utility.
+- **Navigation Architecture:** Use **Expo Router** for file-based routing. Pass minimal data (IDs) through route parameters; components should fetch the required data from the single source of truth (DB) using those IDs.

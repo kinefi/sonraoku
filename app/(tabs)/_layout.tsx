@@ -1,4 +1,6 @@
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useIsMutating, useIsFetching } from '@tanstack/react-query';
 import { useTheme } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
 import { IconButton } from '@/components';
@@ -6,6 +8,11 @@ import { IconButton } from '@/components';
 export default function TabsLayout() {
   const { t } = useLanguage();
   const { colors } = useTheme();
+
+  // Detect if any RSS-related sync or fetch is happening
+  const isSyncing = useIsMutating({ mutationKey: ['rss-sync-all'] }) > 0;
+  const isFetching = useIsFetching({ queryKey: ['rss-items'] }) > 0;
+  const showIndicator = isSyncing || isFetching;
 
   return (
     <Tabs
@@ -38,6 +45,22 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="rss"
+        options={{
+          title: t.nav.rss,
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <IconButton name="logo-rss" size={size} color={color} passive style={{ padding: 0 }} />
+              {showIndicator && (
+                <View style={[styles.indicatorContainer, { backgroundColor: colors.bgPage }]}>
+                  <ActivityIndicator size={10} color={colors.primary} />
+                </View>
+              )}
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="highlights"
         options={{
           title: t.nav.highlights,
@@ -58,3 +81,15 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  indicatorContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -6,
+    borderRadius: 10,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

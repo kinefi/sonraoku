@@ -1,4 +1,4 @@
-import { Paths, File, Directory } from 'expo-file-system';
+import { Paths, File as FileSystemFile, Directory as FileSystemDirectory } from 'expo-file-system';
 import { IMAGE_CACHE_FOLDER, TIMEOUTS } from '@/lib/constants';
 
 const VALID_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif'];
@@ -31,14 +31,14 @@ function urlToFilename(url: string, index: number): string {
     if (name && name.length > 0 && name.length < 80) {
       return `${index}_${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
     }
-  } catch (e) { /* fall through */ }
+  } catch { /* fall through */ }
   return `img_${index}_${Date.now()}`;
 }
 
 /**
  * Downloads a single image with a timeout.
  */
-async function downloadWithTimeout(url: string, dest: File): Promise<{ uri: string }> {
+async function downloadWithTimeout(url: string, dest: FileSystemFile): Promise<{ uri: string }> {
   // Basic validation: ensure it looks like an image URL
   const lowerUrl = url.toLowerCase();
   const hasValidExt = VALID_IMAGE_EXTENSIONS.some(ext => lowerUrl.includes(ext));
@@ -47,7 +47,7 @@ async function downloadWithTimeout(url: string, dest: File): Promise<{ uri: stri
     throw new Error('Invalid image URL or extension');
   }
 
-  const download = File.downloadFileAsync(url, dest);
+  const download = dest.downloadAsync(url);
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Download timed out')), TIMEOUTS.IMAGE_DOWNLOAD)
   );
@@ -67,7 +67,7 @@ export async function cacheArticleImages(
   if (urls.length === 0) return html;
 
   // Create article-specific directory: {Documents}/images/{articleId}/
-  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
+  const dir = new FileSystemDirectory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
   if (!dir.exists) {
     await dir.create();
   }
@@ -76,7 +76,7 @@ export async function cacheArticleImages(
   const results = await Promise.allSettled(
     urls.map(async (url, i) => {
       const filename = urlToFilename(url, i);
-      const dest = new File(dir, filename);
+      const dest = new FileSystemFile(dir, filename);
 
       // Avoid redundant downloads if file already exists
       if (dest.exists) {
@@ -100,8 +100,10 @@ export async function cacheArticleImages(
 
   let updatedHtml = html;
   for (const result of successfulDownloads) {
-    // Replace all occurrences of the remote URL with the local file URI
-    updatedHtml = updatedHtml.replaceAll(result.url, result.localUri);
+    // Escape the URL for use in a Regex and replace only when it is inside quotes (HTML attributes)
+    const escapedUrl = result.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const attributeRegex = new RegExp(`(["'])${escapedUrl}(["'])`, 'g');
+    updatedHtml = updatedHtml.replace(attributeRegex, `$1${result.localUri}$2`);
   }
 
   return updatedHtml;
@@ -110,13 +112,13 @@ export async function cacheArticleImages(
 /**
  * Recursively calculates the size of a directory.
  */
-async function getDirSize(dir: Directory): Promise<number> {
+async function getDirSize(dir: FileSystemDirectory): Promise<number> {
   let size = 0;
   const items = await dir.list();
   for (const item of items) {
-    if (item instanceof File) {
+    if (item instanceof FileSystemFile) {
       size += item.size;
-    } else if (item instanceof Directory) {
+    } else if (item instanceof FileSystemDirectory) {
       size += await getDirSize(item);
     }
   }
@@ -124,20 +126,20 @@ async function getDirSize(dir: Directory): Promise<number> {
 }
 
 export async function deleteArticleImageCache(articleId: string): Promise<void> {
-  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
+  const dir = new FileSystemDirectory(Paths.document, IMAGE_CACHE_FOLDER, articleId);
   if (dir.exists) {
     await dir.delete();
   }
 }
 
 export async function getTotalCacheSize(): Promise<number> {
-  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER);
+  const dir = new FileSystemDirectory(Paths.document, IMAGE_CACHE_FOLDER);
   if (!dir.exists) return 0;
   return getDirSize(dir);
 }
 
 export async function clearAllImageCache(): Promise<void> {
-  const dir = new Directory(Paths.document, IMAGE_CACHE_FOLDER);
+  const dir = new FileSystemDirectory(Paths.document, IMAGE_CACHE_FOLDER);
   if (dir.exists) {
     await dir.delete();
   }

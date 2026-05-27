@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
-import { Text, StyleSheet, Animated } from 'react-native';
+import React, { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
+import { Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { useTheme, borderRadius, spacing, typography, sharedStyles } from '@/lib/theme';
 import { IconButton } from '@/components';
 
@@ -9,6 +9,7 @@ interface ToastOptions {
   message: string;
   type?: ToastType;
   duration?: number;
+  action?: { label: string; onPress: () => void };
 }
 
 interface ToastContextType {
@@ -21,28 +22,53 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState('');
   const [type, setType] = useState<ToastType>('info');
+  const [action, setAction] = useState<ToastOptions['action']>(undefined);
   const { colors } = useTheme();
+
+  const [prevColor, setPrevColor] = useState(colors.primary);
+  const [currColor, setCurrColor] = useState(colors.primary);
+  const colorAnim = useRef(new Animated.Value(0)).current;
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const showToast = useCallback(({ message, type = 'info', duration = 3000 }: ToastOptions) => {
+  const getTypeColor = useCallback((t: ToastType) => {
+    return t === 'success' ? colors.success : t === 'error' ? colors.error : colors.primary;
+  }, [colors]);
+
+  useEffect(() => {
+    const targetColor = getTypeColor(type);
+    if (targetColor !== currColor) {
+      setPrevColor(currColor);
+      setCurrColor(targetColor);
+      colorAnim.setValue(0);
+      Animated.timing(colorAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [type, getTypeColor, currColor, colorAnim]);
+
+  const showToast = useCallback(({ message, type = 'info', duration = 3000, action }: ToastOptions) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
     setMessage(message);
     setType(type);
+    setAction(action);
     setVisible(true);
 
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false, // Must be false to avoid conflict with colorAnim on the same node
     }).start();
 
     timeoutRef.current = setTimeout(() => {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
-        useNativeDriver: true,
+        useNativeDriver: false, // Must be false to avoid conflict with colorAnim on the same node
       }).start(() => setVisible(false));
     }, duration);
   }, [fadeAnim]);
@@ -58,7 +84,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       alignItems: 'center',
       padding: spacing.md,
       borderRadius: borderRadius.lg,
-      backgroundColor: type === 'success' ? colors.success : type === 'error' ? colors.error : colors.primary,
       ...sharedStyles(colors).floating,
     },
     icon: {
@@ -70,15 +95,31 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       fontSize: 14,
       fontWeight: typography.weights.medium,
     },
-  }), [colors, type]);
+    actionButton: {
+      marginLeft: spacing.sm,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+    },
+    actionText: {
+      color: colors.white,
+      fontSize: 13,
+      fontWeight: typography.weights.bold,
+      textTransform: 'uppercase',
+    },
+  }), [colors]);
 
   const iconName = type === 'success' ? 'checkmark-circle' : type === 'error' ? 'alert-circle' : 'information-circle';
+
+  const animatedBackgroundColor = colorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [prevColor, currColor],
+  });
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {visible && (
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.container, { opacity: fadeAnim, backgroundColor: animatedBackgroundColor }]}>
           <IconButton 
             name={iconName} 
             size={20} 
@@ -87,6 +128,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             style={styles.icon} 
           />
           <Text style={styles.text}>{message}</Text>
+          {action && (
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={() => {
+                action.onPress();
+                setVisible(false);
+              }}
+            >
+              <Text style={styles.actionText}>{action.label}</Text>
+            </TouchableOpacity>
+          )}
         </Animated.View>
       )}
     </ToastContext.Provider>

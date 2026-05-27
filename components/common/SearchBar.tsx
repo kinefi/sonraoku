@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { useTheme } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
-import IconButton from './IconButton';
+import IconButton from '@/components/common/IconButton';
 
 type Props = {
   value: string;
@@ -43,20 +43,8 @@ export default function SearchBar({ value, onChangeText, placeholder, onClear }:
 }
 
 const styles = StyleSheet.create({
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 40,
-  },
+  searchContainer: { paddingHorizontal: 16, paddingTop: 8 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 12, height: 40 },
   searchIcon: { marginRight: 8 },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-  },
+  searchInput: { flex: 1, fontSize: 15 },
 });

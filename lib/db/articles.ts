@@ -1,7 +1,7 @@
 import { eq, and, or, like, desc, isNotNull, exists, inArray } from 'drizzle-orm';
-import { db } from './config';
-import { DbResult, DbAction, Article } from './types';
-import * as schema from './schema';
+import { db } from '@/lib/db/config';
+import { DbResult, DbAction, Article } from '@/lib/db/types';
+import * as schema from '@/lib/db/schema';
 import { sanitizeSqlString } from '@/lib/utils';
 
 const { articles, tags, articleTags } = schema;
@@ -43,7 +43,7 @@ export async function getArticles(
     }
 
     const trimmedSearch = searchQuery.trim();
-    if (trimmedSearch) {
+    if (trimmedSearch.length >= 2) {
       const q = `%${trimmedSearch}%`;
       clauses.push(or(
         like(articles.title, q), like(articles.url, q), like(articles.excerpt, q),

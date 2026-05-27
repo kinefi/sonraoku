@@ -4,7 +4,7 @@ import { Article } from '@/lib/db';
 import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
 import { getDomain, getReadTime } from '@/lib/utils';
 import { useLanguage } from '@/lib/language';
-import IconButton from './IconButton';
+import IconButton from '@/components/common/IconButton';
 
 type Props = {
   article: Article;
@@ -16,7 +16,7 @@ type Props = {
 
 export default function ArticleCard({ article, onPress, onLongPress, isSelected, selectionMode }: Props) {
   const { t, translate } = useLanguage();
-  const { colors, isDark, themeMode } = useTheme();
+  const { colors, themeMode } = useTheme();
   const isOffline = article.html_content !== null;
   const isRead = !!article.is_read;
 
@@ -110,7 +110,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       flexDirection: 'row',
       justifyContent: 'space-between',
     },
-  }), [colors, isDark, themeMode]);
+  }), [colors, themeMode]);
 
   // Construct a comprehensive accessibility label for the card
   const cardAccessibilityLabel = [

@@ -5,8 +5,8 @@ import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { queryClient } from '@/lib/reader';
 import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '@/lib/db';
-import ArticleCard from './ArticleCard';
-import IconButton from './IconButton';
+import ArticleCard from '@/components/reader/ArticleCard';
+import IconButton from '@/components/common/IconButton';
 import { useLanguage } from '@/lib/language';
 
 type Props = {

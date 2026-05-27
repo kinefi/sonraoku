@@ -20,8 +20,6 @@ on:
 env:
   # Enable Gradle Configuration Cache and Parallel execution globally for the runner
   GRADLE_OPTS: -Dorg.gradle.configuration-cache=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
-  # Bypass pnpm minimum release age violation for fresh packages
-  PNPM_CONFIG_MINIMUM_RELEASE_AGE: 0
 
 jobs:
   versioning:

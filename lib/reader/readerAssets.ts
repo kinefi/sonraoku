@@ -204,9 +204,15 @@ export const getReaderJS = (highlightsJson: string) => `
     };
 
     // Initial Application
-    setTimeout(() => {
+    const runSetup = () => {
       window.applyHighlights(${highlightsJson});
-    }, 500); // Increased delay for better stability on larger articles
+    };
+
+    if (document.readyState === 'complete') {
+      runSetup();
+    } else {
+      window.addEventListener('load', runSetup);
+    }
 
     // --- Selection & Toolbar Logic ---
     function getSelectionContext(selection) {
@@ -280,7 +286,7 @@ export const getReaderJS = (highlightsJson: string) => `
       const data = getSelectionContext(selection);
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'highlight',
-        id: Date.now().toString(),
+        id: 'hl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
         text: data.selectedText,
         contextBefore: data.contextBefore,
         contextAfter: data.contextAfter

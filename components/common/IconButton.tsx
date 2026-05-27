@@ -52,7 +52,7 @@ export default function IconButton({ name, label, size = 24, color, style, child
       fontWeight: typography.weights.bold,
       textAlign: 'center',
     },
-  }), [themeColor, colors]);
+  }), [themeColor]);
 
   return (
     <Container

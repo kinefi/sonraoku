@@ -40,7 +40,7 @@ export function useReaderSelection({
 
   const source = useMemo(
     () => ({ html: buildReaderHtml(title, html, fontSize, fontFamily, defaultColor, highlights, colors) }),
-    [html, title]
+    [html, title, fontSize, fontFamily, defaultColor, highlights, colors]
   );
 
   const injectReaderSettings = useCallback(() => {

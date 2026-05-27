@@ -5,3 +5,4 @@ export * from './parseQueue';
 export * from './htmlBuilder';
 export * from './useReaderSelection';
 export * from './useArticleParser';
+export * from './rssFetcher';

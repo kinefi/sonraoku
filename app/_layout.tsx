@@ -9,6 +9,8 @@ import { ArticleParser } from '@/components';
 import { LanguageProvider, useLanguage } from '@/lib/language';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 import { ToastProvider, useToast } from '@/lib/toast';
+// Register background tasks globally
+import '@/lib/hooks/backgroundSync';
 import { ParseResult } from '@/types/reader';
 
 const MAX_PARSE_RETRIES = 2;
@@ -74,7 +76,7 @@ function RootLayoutContent() {
     }
     
     setParseQueue((prev) => prev.filter(item => item.id !== id));
-  }, [parseQueue, t.articles.saved, t.errors.parseError, showToast]);
+  }, [parseQueue, t.articles.saved, t.articles.untitled, t.errors.parseError, showToast]);
 
   const handleParseError = useCallback((id: string, error?: string) => {
     console.warn('Parse failed for article', id, error ? `- ${error}` : '');
@@ -86,7 +88,7 @@ function RootLayoutContent() {
       if (retries < MAX_PARSE_RETRIES) {
         showToast({
           message: translate('errors.retryAttempt', {
-            n: retries + 1,
+            current: retries + 1,
             max: MAX_PARSE_RETRIES
           }),
           type: 'info'
@@ -104,30 +106,33 @@ function RootLayoutContent() {
   // Memoize context to prevent full app re-renders when layout re-renders
   const queueContextValue = useMemo(() => ({ addToQueue, parseQueue }), [addToQueue, parseQueue]);
 
-  if (!isDbReady) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
     <GestureHandlerRootView style={styles.root}>
       <QueryClientProvider client={queryClient}>
         <ParseQueueContext.Provider value={queueContextValue}>
-          {current && (
-            <ArticleParser
-              key={current.id}
-              html={current.html}
-              onParsed={(result) => handleParsed(current.id, result)}
-              onError={(error) => handleParseError(current.id, error)}
-            />
+          {!isDbReady ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : (
+            <>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
+              </Stack>
+              {/* Stable container for the parser to prevent layout index shifting */}
+              <View style={styles.parserContainer} pointerEvents="none">
+                {current && (
+                  <ArticleParser
+                    key={current.id}
+                    html={current.html}
+                    onParsed={(result) => handleParsed(current.id, result)}
+                    onError={(error) => handleParseError(current.id, error)}
+                  />
+                )}
+              </View>
+            </>
           )}
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="article/[id]" options={{ headerShown: false }} />
-          </Stack>
         </ParseQueueContext.Provider>
       </QueryClientProvider>
     </GestureHandlerRootView>
@@ -152,5 +157,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  parserContainer: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0.01,
   },
 });

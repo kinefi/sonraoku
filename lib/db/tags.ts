@@ -1,8 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { eq, and, asc, like } from 'drizzle-orm';
-import { db } from './config';
-import { DbResult, DbAction } from './types';
-import * as schema from './schema';
+import { db } from '@/lib/db/config';
+import { DbResult, DbAction } from '@/lib/db/types';
+import * as schema from '@/lib/db/schema';
 
 const { tags, articleTags } = schema;
 

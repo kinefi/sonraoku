@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, Linking, StyleSheet } from 'react-native';
 import { sharedStyles, spacing, borderRadius, useTheme } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
-import IconButton from './IconButton';
+import IconButton from '@/components/common/IconButton';
 
 type Props = {
   title: string | null;

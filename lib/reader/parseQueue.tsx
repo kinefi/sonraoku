@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 export type ParseQueueItem = {
   id: string;
   html: string;
+  title: string;
   url: string;
   retries?: number;
 };

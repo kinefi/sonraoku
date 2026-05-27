@@ -106,9 +106,10 @@ export default function TagsScreen() {
           actions={[
             {
               icon: 'add',
-              iconSize: 30,
+              iconSize: 24,
               onPress: () => setShowSheet(true),
               haptic: Haptics.ImpactFeedbackStyle.Light,
+              variant: 'filled',
             },
           ]}
         />

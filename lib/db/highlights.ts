@@ -1,9 +1,8 @@
 import { eq, desc, asc, or, like } from 'drizzle-orm';
-import { db, DbResult, DbAction } from './config';
-import * as schema from './schema';
-
+import { db } from '@/lib/db/config';
+import * as schema from '@/lib/db/schema';
+import { Highlight, DbResult, DbAction } from '@/lib/db/types';
 const { highlights, articles } = schema;
-export type Highlight = typeof schema.highlights.$inferSelect;
 export type HighlightWithArticle = Highlight & { article_title: string | null };
 
 export async function getHighlightsByArticle(articleId: string): Promise<DbResult<Highlight[]>> {

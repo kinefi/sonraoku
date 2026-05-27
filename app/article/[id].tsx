@@ -18,7 +18,6 @@ import {
   getHighlightsByArticle, getTagsForArticle,
 } from '@/lib/db';
 import { sharedStyles, spacing, borderRadius, typography, useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
-import { TIMEOUTS } from '@/lib/constants';
 import { ReaderView, ArticleMetaHeader, HighlightsModal, TagsModal, ArticleFallback, ReaderFabPill, IconButton } from '@/components';
 import { useLanguage } from '@/lib/language';
 
@@ -26,7 +25,7 @@ export default function ArticleScreen() {
   const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
   const { t } = useLanguage();
   const { fontSize, fontFamily, changeFontSize, defaultColor, colors } = useArticleSettings();
-  const { isDark } = useTheme();
+  useTheme();
   
   const { parseQueue } = useContext(ParseQueueContext) as any;
   const isCurrentlyParsing = useMemo(() => parseQueue?.some((item: any) => item.id === id), [parseQueue, id]);
@@ -121,7 +120,7 @@ export default function ArticleScreen() {
     if (Math.abs(progress - preservedProgress) > 0.05) {
       setPreservedProgress(progress);
     }
-  }, [scrollProgress]);
+  }, [scrollProgress, preservedProgress]);
 
   const handleAddTag = useCallback(() => {
     runAddTag(newTag);
@@ -181,7 +180,7 @@ export default function ArticleScreen() {
       width: 36,
       height: 36,
     },
-  }), [colors, isDark]);
+  }), [colors]);
 
   // Show loading if fetching record, if record missing, or if content is missing and we are still parsing it
   if (isLoading || !article || (isCurrentlyParsing && !article.html_content)) {
@@ -234,7 +233,7 @@ export default function ArticleScreen() {
           <View style={styles.rightFab}>
             <Text style={styles.progressText}>{Math.round(currentProgress * 100)}%</Text>
             <IconButton
-              label="A+"
+              label={t.reader.fontIncrease}
               onPress={() => {
                 Haptics.selectionAsync();
                 changeFontSize(2);
@@ -244,7 +243,7 @@ export default function ArticleScreen() {
               style={styles.sideActionBtn}
             />
             <IconButton
-              label="A−"
+              label={t.reader.fontDecrease}
               onPress={() => {
                 Haptics.selectionAsync();
                 changeFontSize(-2);

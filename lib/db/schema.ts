@@ -47,3 +47,26 @@ export const articleTags = sqliteTable('article_tags', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.article_id, t.tag_id] }),
 }));
+
+export const rssFeeds = sqliteTable('rss_feeds', {
+  id: text('id').primaryKey(),
+  url: text('url').notNull().unique(),
+  title: text('title'),
+  site_url: text('site_url'),
+  icon_url: text('icon_url'),
+  last_synced_at: integer('last_synced_at'),
+  created_at: integer('created_at').notNull(),
+});
+
+export const rssItems = sqliteTable('rss_items', {
+  id: text('id').primaryKey(),
+  feed_id: text('feed_id').notNull().references(() => rssFeeds.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  link: text('link').notNull(),
+  excerpt: text('excerpt'),
+  author: text('author'),
+  pub_date: integer('pub_date'),
+  is_read: integer('is_read').notNull().default(0),
+}, (t) => ({
+  feedLinkIdx: index('feed_link_idx').on(t.feed_id, t.link),
+}));

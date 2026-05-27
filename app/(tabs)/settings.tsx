@@ -1,8 +1,7 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Linking,
   Alert,
@@ -10,29 +9,30 @@ import {
   StatusBar,
   ScrollView,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sharedStyles, HIGHLIGHT_COLORS, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
 import { useLanguage, LANGUAGES, Lang } from '@/lib/language';
 import { formatBytes } from '@/lib/utils';
 import { APP_VERSION, APP_README, GITHUB_URL, TIMEOUTS } from '@/lib/constants';
-import { useSettings } from '@/lib/hooks';
-import { IconButton, SegmentedControl } from '@/components';
+import { useSettings, useRssActions } from '@/lib/hooks';
+import { IconButton, SegmentedControl, SettingsSection, SettingsRow } from '@/components';
 
 export default function SettingsScreen() {
   const { t, lang, setLang } = useLanguage();
   const { themeMode, setThemeMode, fontFamily, setFontFamily, colors, isDark, resetToDefaults } = useTheme();
 
   const {
-    fontSize,
-    highlightColor,
-    cacheSize,
-    changeFontSize,
-    changeHighlightColor,
-    handleClearCache,
-    FONT_SIZE_MIN,
-    FONT_SIZE_MAX
+    fontSize, highlightColor, cacheSize, isBgSyncEnabled, toggleBgSync,
+    changeFontSize, changeHighlightColor, handleClearCache, FONT_SIZE_MIN, FONT_SIZE_MAX
   } = useSettings();
+
+  const { syncAllMutation } = useRssActions();
+
+  const handleManualSync = useCallback(() => {
+    syncAllMutation.mutate(() => {}); // Empty progress callback for settings
+  }, [syncAllMutation]);
 
   // Local state for real-time font size testing in the preview block
   const [previewFontSize, setPreviewFontSize] = useState(fontSize);
@@ -209,9 +209,7 @@ export default function SettingsScreen() {
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Language */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.language}</Text>
+          <SettingsSection title={t.settings.language}>
             <SegmentedControl
               options={LANGUAGES.map(l => ({
                 key: l.key,
@@ -225,11 +223,9 @@ export default function SettingsScreen() {
                 AccessibilityInfo.announceForAccessibility(`${t.settings.language}: ${langLabel}`);
               }}
             />
-          </View>
+          </SettingsSection>
 
-          {/* Theme */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.theme}</Text>
+          <SettingsSection title={t.settings.theme}>
             <SegmentedControl
               options={[
                 { key: 'system', icon: 'settings-outline' },
@@ -242,12 +238,34 @@ export default function SettingsScreen() {
               onChange={setThemeMode}
               accessibilityLabel={t.settings.theme}
             />
-          </View>
+          </SettingsSection>
 
-          {/* Typography & Preview Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.typography}</Text>
-            
+          <SettingsSection title={t.rss.backgroundSync} description={t.rss.backgroundSyncDesc}>
+            <SegmentedControl
+              options={[
+                { key: 'off', label: t.common.back, icon: 'notifications-off-outline' },
+                { key: 'on', label: t.articles.offline, icon: 'refresh-outline' },
+              ]}
+              value={isBgSyncEnabled ? 'on' : 'off'}
+              onChange={(val) => {
+                const enabled = val === 'on';
+                toggleBgSync(enabled);
+              }}
+            />
+          </SettingsSection>
+
+          <SettingsSection title={t.nav.rss}>
+            <SettingsRow 
+              label={t.rss.syncing} 
+              onPress={handleManualSync}
+              disabled={syncAllMutation.isPending}
+              noBorder
+            >
+              {syncAllMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : <IconButton name="refresh-outline" size={18} color={colors.primary} passive />}
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title={t.settings.typography}>
             <SegmentedControl
               options={['serif', 'sans-serif'] as const}
               value={fontFamily}
@@ -256,16 +274,14 @@ export default function SettingsScreen() {
               accessibilityLabel={t.settings.fontFamily}
               size="small"
             />
-
-            <View style={styles.previewContainer}>
+            <View style={[styles.previewContainer, { borderTopWidth: 1, borderTopColor: colors.borderLight, marginTop: spacing.md }]}>
               <Text style={styles.previewText}>
                 {t.settings.typographyPreview}
               </Text>
             </View>
-
-            <View style={styles.fontSizeRow}>
+            <SettingsRow label={t.settings.defaultFontSize}>
               <IconButton
-                label="A−"
+                label={t.reader.fontDecrease}
                 style={[styles.fontBtn, previewFontSize <= FONT_SIZE_MIN && styles.fontBtnDisabled]}
                 onPress={() => {
                   setPreviewFontSize(prev => Math.max(FONT_SIZE_MIN, prev - 2));
@@ -276,7 +292,7 @@ export default function SettingsScreen() {
               />
               <Text style={[styles.fontSizeValue, { fontSize: previewFontSize }]}>Aa</Text>
               <IconButton
-                label="A+"
+                label={t.reader.fontIncrease}
                 style={[styles.fontBtn, previewFontSize >= FONT_SIZE_MAX && styles.fontBtnDisabled]}
                 onPress={() => {
                   setPreviewFontSize(prev => Math.min(FONT_SIZE_MAX, prev + 2));
@@ -285,35 +301,25 @@ export default function SettingsScreen() {
                 disabled={previewFontSize >= FONT_SIZE_MAX}
                 accessibilityLabel={t.reader.maxFontSizeReached}
               />
-            </View>
-          </View>
+            </SettingsRow>
+          </SettingsSection>
 
-          {/* Highlight color */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.defaultHighlightColor}</Text>
-            <View style={styles.colorRow}>
+          <SettingsSection title={t.settings.defaultHighlightColor}>
+            <SettingsRow label={t.common.select} noBorder>
               {HIGHLIGHT_COLORS.map((color) => (
                 <IconButton
                   key={color}
                   onPress={() => changeHighlightColor(color)}
-                  accessibilityLabel={`${t.settings.defaultHighlightColor} ${color}`}
-                  style={[
-                    styles.colorSwatch,
-                    highlightColor === color && styles.colorSwatchSelected,
-                    { padding: 0 }
-                  ]}
+                  style={[styles.colorSwatch, highlightColor === color && styles.colorSwatchSelected, { padding: 0 }]}
                 >
                   <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: color }} />
                 </IconButton>
               ))}
-            </View>
-          </View>
+            </SettingsRow>
+          </SettingsSection>
 
-          {/* Storage Usage */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.storageUsage}</Text>
-            <View style={styles.storageRow}>
-              <Text style={styles.usageText}>{formatBytes(cacheSize)}</Text>
+          <SettingsSection title={t.settings.storageUsage}>
+            <SettingsRow label={formatBytes(cacheSize)} noBorder>
               <IconButton
                 label={t.settings.clearCache}
                 onPress={handleClearCache}
@@ -321,50 +327,28 @@ export default function SettingsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={t.settings.clearCache}
               />
-            </View>
-          </View>
+            </SettingsRow>
+          </SettingsSection>
 
-          {/* About Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.settings.about}</Text>
-            <View style={styles.aboutContent}>
-              <Text style={styles.aboutText}>{t.settings.appDescription}</Text>
-              <View style={styles.aboutRow}>
-                <Text style={styles.aboutLabel}>{t.settings.version}</Text>
-                <Text style={styles.aboutValue}>{APP_VERSION}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.aboutRow}
-                onPress={() => Linking.openURL(APP_README)}
-                accessibilityRole="link"
-                accessibilityLabel={t.settings.readme}
-              >
-                <Text style={[styles.aboutLabel, styles.linkText]}>{t.settings.readme}</Text>
-                <IconButton name="document-text-outline" size={16} color={colors.primary} passive />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.aboutRow, { marginTop: 8 }]}
-                onPress={() => Linking.openURL(GITHUB_URL)}
-                accessibilityRole="link"
-                accessibilityLabel={t.settings.github}
-              >
-                <Text style={[styles.aboutLabel, styles.linkText]}>{t.settings.github}</Text>
-                <IconButton name="logo-github" size={16} color={colors.primary} passive />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Last Synced (Phase 3 Placeholder) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t.articles.lastSynced}</Text>
-            <TouchableOpacity
-              style={[styles.storageRow, { borderTopWidth: 1, borderTopColor: colors.borderLight }]}
-              onPress={() => AccessibilityInfo.announceForAccessibility(t.common.notAvailablePhase3)}
-              accessibilityRole="button"
+          <SettingsSection title={t.settings.about}>
+            <SettingsRow label={t.settings.version} description={APP_VERSION} noBorder />
+            <SettingsRow 
+              label={t.settings.readme} 
+              onPress={() => Linking.openURL(APP_README)}
             >
-              <Text style={styles.usageText}>{t.common.notAvailablePhase3}</Text>
-            </TouchableOpacity>
-          </View>
+              <IconButton name="document-text-outline" size={16} color={colors.primary} passive />
+            </SettingsRow>
+            <SettingsRow 
+              label={t.settings.github} 
+              onPress={() => Linking.openURL(GITHUB_URL)}
+            >
+              <IconButton name="logo-github" size={16} color={colors.primary} passive />
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection title={t.articles.lastSynced}>
+            <SettingsRow label={t.common.notAvailablePhase3} noBorder />
+          </SettingsSection>
 
           {/* Reset Section */}
           <IconButton

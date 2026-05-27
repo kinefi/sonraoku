@@ -1,4 +1,4 @@
-import { USER_AGENT, TIMEOUTS } from './constants';
+import { USER_AGENT, TIMEOUTS } from '@/lib/constants';
 
 export function getDomain(url: string): string {
   try {
