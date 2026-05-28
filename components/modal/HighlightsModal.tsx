@@ -37,7 +37,7 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
 
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
-    modalBackdrop: { flex: 1, backgroundColor: colors.overlay },
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
     modalContent: {
       height: '60%',
       backgroundColor: colors.bgPage,

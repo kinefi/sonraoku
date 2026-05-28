@@ -16,7 +16,7 @@ import { ParseQueueContext, buildParserHtml } from '@/lib/reader';
 import { useToast } from '@/lib/toast';
 import { useLanguage } from '@/lib/language';
 import { fetchRawHtml } from '@/lib/utils';
-import { File as FileSystemFile } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { useBackgroundSyncStatus } from '@/lib/hooks/useBackgroundSyncStatus';
 
@@ -119,9 +119,9 @@ export function useRssActions() {
       const fileUri = result?.uri ?? result?.assets?.[0]?.uri;
       if (!fileUri) throw new Error('No file selected for import.');
 
-      const file = new FileSystemFile(fileUri);
-      const opmlContent = await file.readAsStringAsync();
-
+      const opmlContent = await FileSystem.readAsStringAsync(fileUri);
+      
+      // Validation and confirmation as per AGENTS.md best practices
       const res = await importOpml(
         opmlContent,
         onProgress,
@@ -197,8 +197,8 @@ export function useRssActions() {
         id,
         url: item.link,
         title: item.title,
-        html: buildParserHtml(html, item.link, {
-          timeout: 20000, // Changed to number
+        html: buildParserHtml(html, item.link, { // Line 123
+          timeout: t.errors.internalSafetyTimeout,
           noContent: t.articles.noContent,
           unknownError: t.errors.parseError,
         }),
@@ -214,7 +214,7 @@ export function useRssActions() {
     }
   }, [
     addToQueue, invalidateRss, queryClient, showToast, 
-    t.articles.noContent, t.errors.parseError
+    t.articles.noContent, t.errors.parseError, t.errors.internalSafetyTimeout
   ]);
 
   const handleReorderFeeds = useCallback(async (newFeeds: RssFeed[]) => {

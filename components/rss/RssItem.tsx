@@ -2,16 +2,13 @@ import React, { useCallback, memo, useMemo } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { spacing, borderRadius, typography, useTheme } from '@/lib/theme';
-import { Translations } from '@/lib/language/translations';
+import { spacing, borderRadius, typography, ThemeColors } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 import { RssItemWithFeed } from '@/lib/db/types';
-
-type ThemeColors = ReturnType<typeof useTheme>['colors'];
 
 interface RssItemProps {
   item: RssItemWithFeed;
   colors: ThemeColors;
-  t: Translations;
   onDelete: (id: string) => void;
   onSaveOffline: (item: RssItemWithFeed) => void;
   onLongPress: (item: RssItemWithFeed) => void;
@@ -21,12 +18,13 @@ interface RssItemProps {
 function RssItemComponent({
   item,
   colors,
-  t,
   onDelete,
   onSaveOffline,
   onLongPress,
   onPress,
 }: RssItemProps) {
+  const { t } = useLanguage();
+
   const styles = useMemo(
     () =>
       StyleSheet.create({

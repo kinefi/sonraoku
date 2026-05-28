@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import { Paths, File as FileSystemFile, Directory as FileSystemDirectory } from 'expo-file-system';
 import { IMAGE_CACHE_FOLDER, TIMEOUTS } from '@/lib/constants';
 
@@ -47,7 +48,7 @@ async function downloadWithTimeout(url: string, dest: FileSystemFile): Promise<{
     throw new Error('Invalid image URL or extension');
   }
 
-  const download = dest.downloadAsync(url);
+  const download = FileSystem.downloadAsync(url, dest.uri);
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Download timed out')), TIMEOUTS.IMAGE_DOWNLOAD)
   );

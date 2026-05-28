@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Alert, Share } from 'react-native';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, InfiniteData } from '@tanstack/react-query';
 import { desc, eq, and, like } from 'drizzle-orm';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
@@ -8,34 +8,38 @@ import { db, rssFeeds, rssItems, articles } from '@/lib/db';
 import { RssItemWithFeed } from '@/lib/db/types';
 import { ARTICLES_PAGE_SIZE } from '@/lib/constants';
 import RssItem from '@/components/rss/RssItem';
-import { useDeduplicatedInfiniteData } from './useDeduplicatedInfiniteData';
-import { ColorTokens } from '@/lib/theme';
-import { Translations } from '@/lib/language/translations';
+import { useDeduplicatedInfiniteData } from '@/lib/hooks/useDeduplicatedInfiniteData';
+import { useTheme } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
+import { useRssActions } from '@/lib/hooks/useRssActions';
+import { useToast } from '@/lib/toast';
+
+// Define the exact shape returned by the queryFn to ensure type safety for isDownloaded
+type RssItemQueryResult = RssItemWithFeed & { isDownloaded: string | null };
 
 interface UseRssItemsProps {
   isUnreadOnly: boolean;
   searchQuery: string;
   selectedFeedId: string | null;
-  colors: ColorTokens;
-  t: Translations;
-  markReadMutation: any;
-  deleteItemMutation: any;
-  handleSaveToReadingList: any;
-  showToast: (params: { message: string, type: 'success' | 'error' | 'info' }) => void;
 }
 
 export function useRssItems({
   isUnreadOnly,
   searchQuery,
   selectedFeedId,
-  colors,
-  t,
-  markReadMutation,
-  deleteItemMutation,
-  handleSaveToReadingList,
-  showToast,
 }: UseRssItemsProps) {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isFetching } = useInfiniteQuery({
+  const { colors } = useTheme();
+  const { t } = useLanguage();
+  const { markReadMutation, deleteItemMutation, handleSaveToReadingList } = useRssActions();
+  const { showToast } = useToast();
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isFetching } = useInfiniteQuery<
+    RssItemQueryResult[],
+    Error,
+    InfiniteData<RssItemQueryResult[], number>,
+    any[],
+    number
+  >({
     queryKey: ['rss-items', isUnreadOnly, searchQuery, selectedFeedId],
     initialPageParam: 0,
     queryFn: async ({ pageParam = 0 }) => {
@@ -55,9 +59,9 @@ export function useRssItems({
         feedTitle: rssFeeds.title,
         isDownloaded: articles.id,
       })
-      .from(rssItems)
-      .innerJoin(rssFeeds, eq(rssItems.feed_id, rssFeeds.id))
-      .leftJoin(articles, eq(rssItems.link, articles.url));
+        .from(rssItems)
+        .innerJoin(rssFeeds, eq(rssItems.feed_id, rssFeeds.id))
+        .leftJoin(articles, eq(rssItems.link, articles.url));
 
       const finalQuery = conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
 
@@ -71,9 +75,9 @@ export function useRssItems({
     },
   });
 
-  const flatItems = useDeduplicatedInfiniteData(data?.pages);
+  const flatItems = useDeduplicatedInfiniteData<RssItemQueryResult>(data?.pages);
 
-  const handlePress = useCallback(async (item: RssItemWithFeed) => {
+  const handlePress = useCallback(async (item: RssItemQueryResult) => {
     if (item.isRead === 0) markReadMutation.mutate(item.id);
     if (item.isDownloaded) {
       router.push(`/article/${item.isDownloaded}`);
@@ -84,31 +88,30 @@ export function useRssItems({
     }
   }, [markReadMutation, t.articles.invalidUrl, showToast]);
 
-  const handleLongPress = useCallback((item: RssItemWithFeed) => {
-    Alert.alert(item.title, null, [
+  const handleLongPress = useCallback((item: RssItemQueryResult) => {
+    Alert.alert(item.title, '', [
       { text: t.common.share, onPress: () => Share.share({ url: item.link, message: item.title }) },
-      { 
-        text: t.articles.openInBrowser, 
+      {
+        text: t.articles.openInBrowser,
         onPress: async () => {
           const canOpen = await Linking.canOpenURL(item.link);
           if (canOpen) Linking.openURL(item.link);
-        } 
+        }
       },
       { text: t.common.cancel, style: 'cancel' }
     ], { cancelable: true });
   }, [t]);
 
-  const renderItem = useCallback(({ item }: { item: RssItemWithFeed }) => (
-    <RssItem 
+  const renderItem = useCallback(({ item }: { item: RssItemQueryResult }) => (
+    <RssItem
       item={item}
       colors={colors}
-      t={t}
-      onDelete={(id) => deleteItemMutation.mutate(id)}
+      onDelete={(id: string) => deleteItemMutation.mutate(id)}
       onSaveOffline={handleSaveToReadingList}
       onLongPress={handleLongPress}
       onPress={handlePress}
     />
-  ), [colors, t, deleteItemMutation, handleSaveToReadingList, handleLongPress, handlePress]);
+  ), [colors, deleteItemMutation, handleSaveToReadingList, handleLongPress, handlePress]);
 
   return { flatItems, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isFetching, renderItem };
 }

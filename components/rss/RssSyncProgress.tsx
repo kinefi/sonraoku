@@ -1,29 +1,28 @@
 import React, { memo } from 'react';
 import { View, Text } from 'react-native';
-import { typography, useTheme } from '@/lib/theme';
-
-type ColorTokens = ReturnType<typeof useTheme>['colors'];
+import { typography, ThemeColors } from '@/lib/theme';
+import { useLanguage } from '@/lib/language';
 
 interface RssSyncProgressProps {
   isVisible: boolean;
   isImporting: boolean;
   progress: number;
   title: string | null;
-  colors: ColorTokens;
-  t: any;
+  colors: ThemeColors;
 }
 
 /**
  * Sub-component for the sync/import progress bar
  */
-export const RssSyncProgress = memo(({ 
+const RssSyncProgress = memo(({ 
   isVisible, 
   isImporting, 
   progress, 
   title, 
-  colors, 
-  t 
+  colors 
 }: RssSyncProgressProps) => {
+  const { t } = useLanguage();
+
   if (!isVisible) return null;
   
   return (
@@ -44,3 +43,5 @@ export const RssSyncProgress = memo(({
 });
 
 RssSyncProgress.displayName = 'RssSyncProgress';
+
+export default RssSyncProgress;

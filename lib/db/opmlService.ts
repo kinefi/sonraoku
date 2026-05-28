@@ -1,4 +1,5 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import * as FileSystem from 'expo-file-system';
 import { Paths, File as FileSystemFile } from 'expo-file-system';
 import { nanoid } from 'nanoid/non-secure';
 import { db } from '@/lib/db/config';
@@ -34,7 +35,6 @@ export async function importOpml(
   try {
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNameProcessors: [(name) => name.startsWith('@_') ? name.slice(2) : name],
     });
     const parsed = parser.parse(opmlContent) as OpmlParsed;
 
@@ -116,14 +116,19 @@ export async function exportOpml(): Promise<DbAction & { filePath?: string }> {
     const opmlData = {
       opml: {
         head: { title: 'Sonra Oku Subscriptions' },
-        body: { outline: feeds.map(f => ({ '@_type': 'rss', '@_text': f.title || f.url, '@_xmlUrl': f.url, '@_htmlUrl': f.site_url || undefined })) }
+        body: { outline: feeds.map(f => ({ 
+          '@_type': 'rss', 
+          '@_text': sanitizeSqlString(f.title || f.url), 
+          '@_xmlUrl': f.url, 
+          '@_htmlUrl': f.site_url || undefined 
+        })) }
       }
     };
 
     const builder = new XMLBuilder({ ignoreAttributes: false, format: true, suppressEmptyNode: true });
     const xml = builder.build(opmlData);
     const file = new FileSystemFile(Paths.cache, 'subscriptions.opml'); // Corrected File constructor usage
-    await file.writeAsStringAsync(xml);
+    await FileSystem.writeAsStringAsync(file.uri, xml);
     return { error: null, filePath: file.uri };
   } catch (e: unknown) { return { error: e, filePath: undefined }; }
 }

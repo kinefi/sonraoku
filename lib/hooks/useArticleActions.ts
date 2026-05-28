@@ -6,9 +6,10 @@ import { fetchRawHtml } from '@/lib/utils';
 import { ReaderMessage } from '@/types/reader';
 import { TIMEOUTS } from '@/lib/constants';
 import { 
-  Highlight, Article, addTagToArticle, removeTagFromArticle, 
+  addTagToArticle, removeTagFromArticle, 
   insertHighlight, deleteHighlight, toggleFavoriteArticle 
 } from '@/lib/db';
+import type { Highlight, Article } from '@/lib/db/types';
 import { queryClient, ParseQueueContext, buildParserHtml } from '@/lib/reader';
 import { useOptimisticMutation } from '@/lib/hooks/useOptimisticMutation';
 
@@ -25,8 +26,9 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
     setFetchStatus('fetching');
     try {
       const html = await fetchRawHtml(url);
-      addToQueue({ id: articleId, url, html: buildParserHtml(html, url, {
-        timeout: 20000,
+      addToQueue({ id: articleId, url, title: title || t.articles.untitled, html: buildParserHtml(html, url, {
+        // Fix: Changed timeout from number to translation string key
+        timeout: t.reader.timeout,
         noContent: t.articles.noContent,
         unknownError: t.errors.parseError,
       }), retries: 0 });
@@ -38,7 +40,7 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
       setIsFetching(false);
       setTimeout(() => setFetchStatus(null), TIMEOUTS.STATUS_MESSAGE_RESET);
     }
-  }, [articleId, url, t, addToQueue]);
+  }, [articleId, url, t, addToQueue, title]);
 
   const handleShare = useCallback(async () => {
     if (!url) return;
@@ -73,7 +75,7 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
   const favoriteMutation = useOptimisticMutation<Article, boolean>(
     ['article', articleId],
     (isFav: boolean) => toggleFavoriteArticle(articleId!, isFav),
-    (old: Article | undefined, isFav) => old ? { ...old, is_favorite: isFav ? 1 : 0 } : old
+    (old, isFav) => old ? { ...old, is_favorite: isFav ? 1 : 0 } : ({} as Article)
   );
 
   const handleToggleFavorite = useCallback((isFavorite: boolean) => {

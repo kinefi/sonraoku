@@ -4,7 +4,7 @@ import { useTheme, spacing, typography } from '@/lib/theme';
 import IconButton from '@/components/common/IconButton';
 
 interface EmptyStateProps {
-  icon: string;
+  icon: NonNullable<React.ComponentProps<typeof IconButton>['name']>;
   title: string;
   description?: string;
   fullScreen?: boolean;

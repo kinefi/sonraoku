@@ -128,6 +128,7 @@ export const tr = {
     backgroundSyncDesc: 'Arka planda periyodik olarak yeni yazıları kontrol et',
     unreadOnly: 'Sadece okunmamışlar',
     manageFeeds: 'Akışları Yönet',
+    markFeedReadConfirm: 'Bu akıştaki tüm öğeleri okundu olarak işaretlemek istediğinize emin misiniz?',
     deleteFeedConfirm: 'Bu akışı ve tüm yazılarını silmek istediğinize emin misiniz?',
     exportOpml: 'OPML Dışa Aktar',
     importOpml: 'OPML İçe Aktar',

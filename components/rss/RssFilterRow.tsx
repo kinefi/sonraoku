@@ -56,7 +56,7 @@ export const RssFilterRow = ({
       >
         <IconButton
           label={sortOrder === 'alpha' ? t.articles.sortAlpha : t.articles.unread}
-          icon={sortOrder === 'alpha' ? "list-outline" : "stats-chart-outline"}
+          name={sortOrder === 'alpha' ? "list-outline" : "stats-chart-outline"}
           variant="ghost"
           onPress={onToggleSort}
           style={styles.chip}
@@ -65,15 +65,15 @@ export const RssFilterRow = ({
 
         <IconButton
           label={t.rss.unreadOnly}
-          icon={isUnreadOnly ? "eye-off-outline" : "eye-outline"}
+          name={isUnreadOnly ? "eye-off-outline" : "eye-outline"}
           variant={isUnreadOnly ? 'filled' : 'ghost'}
           onPress={onToggleUnreadOnly}
           style={[styles.chip, isUnreadOnly && { backgroundColor: colors.primary }]}
           labelStyle={[styles.chipText, isUnreadOnly && styles.chipTextActive]}
         />
-        <IconButton label={t.rss.manageFeeds} icon="settings-outline" variant="ghost" onPress={onManage} style={styles.chip} labelStyle={styles.chipText} />
-        <IconButton label={t.rss.clearRead} icon="trash-outline" variant="ghost" onPress={onClearRead} style={styles.chip} labelStyle={styles.chipText} />
-        <IconButton label={t.rss.markAllRead} icon="checkmark-done-outline" variant="ghost" onPress={onMarkAllRead} style={styles.chip} labelStyle={styles.chipText} />
+        <IconButton label={t.rss.manageFeeds} name="settings-outline" variant="ghost" onPress={onManage} style={styles.chip} labelStyle={styles.chipText} />
+        <IconButton label={t.rss.clearRead} name="trash-outline" variant="ghost" onPress={onClearRead} style={styles.chip} labelStyle={styles.chipText} />
+        <IconButton label={t.rss.markAllRead} name="checkmark-done-outline" variant="ghost" onPress={onMarkAllRead} style={styles.chip} labelStyle={styles.chipText} />
       </ScrollView>
     </View>
   );

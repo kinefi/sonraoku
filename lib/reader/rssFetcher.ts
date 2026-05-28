@@ -4,7 +4,6 @@ import { fetchRawHtml } from '@/lib/utils';
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
-  maxTagLevel: 100, // Increase nesting limit to handle complex/deeply nested feeds
 });
 
 export interface ParsedRssItem {

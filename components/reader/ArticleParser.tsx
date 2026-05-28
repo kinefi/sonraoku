@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLanguage } from '@/lib/language';
-import { useArticleParser } from '@/lib/reader';
+import { useArticleParser } from '@/lib/hooks';
 import { ParseResult } from '@/types/reader';
 
 type Props = {
@@ -32,7 +32,7 @@ export default function ArticleParser({ html, onParsed, onError }: Props) {
       allowUniversalAccessFromFileURLs={false} // Security hardening
       mixedContentMode="never" // Security hardening
       onLoadEnd={onLoadEnd}
-      onError={(e) => onWebViewError(e.nativeEvent.description ?? t.pageLoadError)}
+      onError={(e) => onWebViewError(e.nativeEvent.description ?? t.errors.pageLoadError)}
       onMessage={onMessage}
     />
   );

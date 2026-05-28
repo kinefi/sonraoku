@@ -72,6 +72,7 @@ export const colors = {
   textMuted: '#888',
   textFaint: '#aaa',
   placeholder: '#bbb',
+  overlay: 'rgba(0,0,0,0.5)',
 } as const;
 
 export const darkColors = {
@@ -91,6 +92,7 @@ export const darkColors = {
   textMuted: '#888',
   textFaint: '#666',
   placeholder: '#444',
+  overlay: 'rgba(0,0,0,0.5)',
 } as const;
 
 export const sepiaColors = {
@@ -110,6 +112,7 @@ export const sepiaColors = {
   textMuted: '#8b7666',
   textFaint: '#ab9686',
   placeholder: '#bbb',
+  overlay: 'rgba(0,0,0,0.3)',
 } as const;
 
 export const highContrastColors = {
@@ -129,6 +132,7 @@ export const highContrastColors = {
   textMuted: '#666666',
   textFaint: '#999999',
   placeholder: '#555555',
+  overlay: 'rgba(0,0,0,0.5)',
 } as const;
 
 export type ThemeColors = { [K in keyof typeof colors]: string };

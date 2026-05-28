@@ -65,6 +65,7 @@ export default function SaveUrlSheet({ visible, onClose }: Props) {
       .then((rawHtml) => {
         addToQueue({ 
           id, 
+          title: rawHtml.match(/<title>(.*?)<\/title>/)?.[1] || fullUrl, // Fallback to URL if title not found
           html: buildParserHtml(rawHtml, fullUrl, {
             timeout: t.errors.internalSafetyTimeout,
             noContent: t.articles.noContent,

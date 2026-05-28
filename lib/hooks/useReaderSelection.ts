@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Highlight } from '@/lib/db';
-import { FontFamily, ColorTokens } from '@/lib/theme';
+import { FontFamily, ThemeColors } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
 import { ReaderMessage, WebViewMessage } from '@/types/reader';
-import { buildReaderHtml, getReaderSettingsScript } from './readerAssets';
+import { buildReaderHtml, getReaderSettingsScript } from '@/lib/reader/readerAssets';
 
 interface UseReaderSelectionProps {
   html: string;
@@ -14,7 +14,7 @@ interface UseReaderSelectionProps {
   fontFamily: FontFamily;
   defaultColor: string;
   highlights: Highlight[];
-  colors: ColorTokens;
+  colors: ThemeColors;
   onMessage: (msg: ReaderMessage) => void;
   onScrollProgress: (progress: number) => void;
   scrollToHighlightId?: string | null;
@@ -59,10 +59,10 @@ export function useReaderSelection({
       `);
       const highlight = highlights.find(h => h.id === scrollToHighlightId);
       if (highlight) {
-        AccessibilityInfo.announceForAccessibility(`${t.highlightsTitle}: ${highlight.selected_text}`);
+        AccessibilityInfo.announceForAccessibility(`${t.highlights.title}: ${highlight.selected_text}`);
       }
     }
-  }, [scrollToHighlightId, t.highlightsTitle, highlights]);
+  }, [scrollToHighlightId, t.highlights.title, highlights]);
 
   useEffect(() => {
     if (!loaded.current) return;

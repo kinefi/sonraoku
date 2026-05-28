@@ -18,19 +18,16 @@ import {
   RssHeader,
   RssSyncProgress 
 } from '@/components';
-import { useToast } from '@/lib/toast';
 
 const RssScreen = () => {
   const { colors } = useTheme();
-  const { t, translate } = useLanguage();
-  const { showToast } = useToast();
+  const { t } = useLanguage();
   const backgroundColor = useThemeTransition(colors.bgPage);
 
   const { 
-    addFeedMutation, markReadMutation, deleteItemMutation, 
+    addFeedMutation,  
     markAllReadMutation, clearReadMutation, deleteAllMutation, 
     markFeedReadMutation, deleteFeedMutation, syncAllMutation, 
-    handleSaveToReadingList, 
     importMutation, exportMutation 
   } = useRssActions();
 
@@ -59,12 +56,6 @@ const RssScreen = () => {
     isUnreadOnly,
     searchQuery,
     selectedFeedId,
-    colors,
-    t,
-    markReadMutation,
-    deleteItemMutation,
-    handleSaveToReadingList,
-    showToast,
   });
   
   const toggleSection = useCallback((feedId: string) => {
@@ -85,11 +76,11 @@ const RssScreen = () => {
   });
 
   // Get the latest sync time across all feeds
-  const { data: lastSyncTime } = useQuery({
+  const { data: lastSyncTime } = useQuery<number | undefined>({
     queryKey: ['rss-last-sync'],
     queryFn: async () => {
       const result = await db.select({ lastSync: max(rssFeeds.last_synced_at) }).from(rssFeeds);
-      return result[0]?.lastSync;
+      return (result[0]?.lastSync ?? undefined) as number | undefined;
     },
   });
 
@@ -120,8 +111,6 @@ const RssScreen = () => {
         lastSyncTime={lastSyncTime}
         selectedFeedId={selectedFeedId}
         colors={colors}
-        t={t}
-        translate={translate}
         onBack={() => {
           setSelectedFeedId(null);
           setSelectedFeedTitle(null);
@@ -150,7 +139,6 @@ const RssScreen = () => {
         progress={syncProgress}
         title={syncingFeedTitle}
         colors={colors}
-        t={t}
       />
 
       {isLoading ? <ActivityIndicator style={{ marginTop: 20 }} color={colors.primary} /> : <SectionList

@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { spacing, typography, ColorTokens } from '@/lib/theme';
+import { spacing, typography, ThemeColors } from '@/lib/theme';
 
 interface RssSourceHeaderProps {
   id: string;
@@ -9,7 +9,7 @@ interface RssSourceHeaderProps {
   unreadCount: number;
   isExpanded: boolean;
   isFiltered: boolean;
-  colors: ColorTokens;
+  colors: ThemeColors;
   onToggle: (id: string) => void;
 }
 

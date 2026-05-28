@@ -1,4 +1,4 @@
-import { FontFamily, ColorTokens } from '@/lib/theme';
+import { FontFamily, ThemeColors } from '@/lib/theme';
 import { Highlight } from '@/lib/db';
 
 /**
@@ -7,7 +7,7 @@ import { Highlight } from '@/lib/db';
 export const getReaderStyles = (
   fontSize: number,
   fontFamily: FontFamily,
-  themeColors: ColorTokens,
+  themeColors: ThemeColors,
   highlightColor: string
 ) => {
   return `
@@ -354,7 +354,7 @@ export const getReaderSettingsScript = (
   fontSize: number,
   fontFamily: FontFamily,
   highlights: Highlight[],
-  themeColors: ColorTokens
+  themeColors: ThemeColors
 ) => {
   const highlightsJson = JSON.stringify(highlights);
   return `
@@ -376,7 +376,7 @@ export const buildReaderHtml = (
   fontFamily: FontFamily,
   highlightColor: string,
   highlights: Highlight[],
-  themeColors: ColorTokens
+  themeColors: ThemeColors
 ) => {
   const highlightsJson = JSON.stringify(highlights);
 

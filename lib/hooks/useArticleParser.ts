@@ -38,11 +38,11 @@ export function useArticleParser({ html, onParsed, onError }: UseArticleParserPr
   useEffect(() => {
     // Budget for WebView to load the page
     timeoutRef.current = setTimeout(() => {
-      handleInternalError(t.timeout);
+      handleInternalError(t.reader.timeout);
     }, TIMEOUTS.WEBVIEW_LOAD);
 
     return clearTimer;
-  }, [handleInternalError, t.timeout, clearTimer]);
+  }, [handleInternalError, t.reader.timeout, clearTimer]);
 
   const source = useMemo(() => ({ html }), [html]);
 
@@ -51,9 +51,9 @@ export function useArticleParser({ html, onParsed, onError }: UseArticleParserPr
     // Page loaded — now budget only for Readability execution
     clearTimer();
     timeoutRef.current = setTimeout(() => {
-      handleInternalError(t.timeout);
+      handleInternalError(t.reader.timeout);
     }, TIMEOUTS.PARSER_EXECUTION);
-  }, [clearTimer, handleInternalError, t.timeout]);
+  }, [clearTimer, handleInternalError, t.reader.timeout]);
 
   const onWebViewError = useCallback((description: string) => {
     handleInternalError(description);
@@ -73,12 +73,12 @@ export function useArticleParser({ html, onParsed, onError }: UseArticleParserPr
           lang: data.lang ?? '',
         });
       } else {
-        handleInternalError(data.error ?? t.parseError);
+        handleInternalError(data.error ?? t.errors.parseError);
       }
     } catch {
-      handleInternalError(t.resultReadError);
+      handleInternalError(t.errors.resultReadError);
     }
-  }, [clearTimer, handleInternalError, t.parseError, t.resultReadError]);
+  }, [clearTimer, handleInternalError, t.errors.parseError, t.errors.resultReadError]);
 
   return {
     source,

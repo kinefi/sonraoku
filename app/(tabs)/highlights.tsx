@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, StatusBar, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { HighlightWithArticle } from '@/lib/db';
 import { useLanguage } from '@/lib/language';
@@ -113,7 +114,7 @@ export default function HighlightsScreen() {
         <IconButton
           name="share-social-outline"
           size={18}
-          onPress={() => handleShare(item)}
+          onPress={() => handleShare(item.selected_text)}
           accessibilityLabel={t.common.share}
         />
         <IconButton

@@ -15,8 +15,8 @@ export { default as RssItem } from '@/components/rss/RssItem';
 export { default as RssManageSheet } from '@/components/rss/RssManageSheet';
 export { default as RssSearchBar } from '@/components/rss/RssSearchBar';
 export { default as RssSourceHeader } from '@/components/rss/RssSourceHeader';
-export * from './rss/RssHeader';
-export * from './rss/RssSyncProgress';
+export { default as RssHeader} from '@/components/rss/RssHeader';
+export { default as RssSyncProgress } from '@/components/rss/RssSyncProgress';
 
 // Reader & Article Components
 export { default as ArticleCard } from '@/components/reader/ArticleCard';

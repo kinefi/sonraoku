@@ -257,8 +257,7 @@ export default function SettingsScreen() {
           <SettingsSection title={t.nav.rss}>
             <SettingsRow 
               label={t.rss.syncing} 
-              onPress={handleManualSync}
-              disabled={syncAllMutation.isPending}
+              onPress={syncAllMutation.isPending ? undefined : handleManualSync}
               noBorder
             >
               {syncAllMutation.isPending ? <ActivityIndicator size="small" color={colors.primary} /> : <IconButton name="refresh-outline" size={18} color={colors.primary} passive />}
