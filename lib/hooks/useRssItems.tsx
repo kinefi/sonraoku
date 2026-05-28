@@ -89,7 +89,7 @@ export function useRssItems({
   }, [markReadMutation, t.articles.invalidUrl, showToast]);
 
   const handleLongPress = useCallback((item: RssItemQueryResult) => {
-    Alert.alert(item.title, '', [
+    Alert.alert(item.title || '', '', [
       { text: t.common.share, onPress: () => Share.share({ url: item.link, message: item.title }) },
       {
         text: t.articles.openInBrowser,

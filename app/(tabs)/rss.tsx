@@ -80,7 +80,7 @@ const RssScreen = () => {
     queryKey: ['rss-last-sync'],
     queryFn: async () => {
       const result = await db.select({ lastSync: max(rssFeeds.last_synced_at) }).from(rssFeeds);
-      return (result[0]?.lastSync ?? undefined) as number | undefined;
+      return (result[0]?.lastSync || undefined) as number | undefined;
     },
   });
 
