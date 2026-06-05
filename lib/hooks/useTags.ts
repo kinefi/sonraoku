@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getAllTags } from '@/lib/db';
+import { getTags } from '@/lib/db';
 
 export function useTags() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const query = useQuery({
-    queryKey: ['tags', 'all', searchQuery],
+    queryKey: ['allTags', searchQuery],
     queryFn: async () => {
-      const res = await getAllTags(searchQuery);
+      const res = await getTags();
       if (res.error) throw res.error;
-      return res.data || [];
+      const all = res.data || [];
+      if (!searchQuery) return all;
+      return all.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
     },
   });
 

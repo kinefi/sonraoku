@@ -1,20 +1,24 @@
 import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Article } from '@/lib/db';
+import { Ionicons } from '@expo/vector-icons';
 import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
 import { getDomain, getReadTime } from '@/lib/utils';
 import { useLanguage } from '@/lib/language';
 import IconButton from '@/components/common/IconButton';
 
+import { ArticleWithTags } from '@/lib/db/types'; // Import ArticleWithTags
+
 type Props = {
-  article: Article;
+  article: ArticleWithTags; // Use ArticleWithTags
   onPress: () => void;
   onLongPress?: () => void;
   isSelected?: boolean;
   selectionMode?: boolean;
+  onAddTagPress?: () => void;
+  onTagPress?: (tag: string) => void;
 };
 
-export default function ArticleCard({ article, onPress, onLongPress, isSelected, selectionMode }: Props) {
+export default function ArticleCard({ article, onPress, onLongPress, isSelected, selectionMode, onAddTagPress, onTagPress }: Props) {
   const { t, translate } = useLanguage();
   const { colors, themeMode } = useTheme();
   const isOffline = article.html_content !== null;
@@ -25,8 +29,12 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
     const mins = Math.floor(diff / 60_000);
     if (mins < 60) return translate('articles.minutesAgo', { m: mins });
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return translate('articles.hoursAgo', { m: hrs });
-    return translate('articles.daysAgo', { m: Math.floor(hrs / 24) });
+    if (hrs < 24) return translate('articles.hoursAgo', { h: hrs });
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return translate('articles.daysAgo', { d: days });
+    
+    const locale = t.common.appName === 'Sonra Oku' ? 'tr-TR' : 'en-US';
+    return new Date(ts).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   }
 
   const styles = useMemo(() => StyleSheet.create({
@@ -69,28 +77,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
     rightGroup: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs + 2,
-    },
-    offlineDot: {
-      width: spacing.sm,
-      height: spacing.sm,
-      borderRadius: borderRadius.sm,
-      backgroundColor: colors.success,
-    },
-    unreadBadge: {
-      width: spacing.sm,
-      height: spacing.sm,
-      borderRadius: borderRadius.sm,
-      backgroundColor: colors.primary,
-    },
-    favoriteDot: {
-      width: spacing.sm,
-      height: spacing.sm,
-      borderRadius: borderRadius.sm,
-      backgroundColor: colors.error,
-    },
-    inactiveDot: {
-      backgroundColor: colors.border,
+      gap: spacing.sm,
     },
     title: {
       fontSize: 16,
@@ -110,6 +97,33 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
       flexDirection: 'row',
       justifyContent: 'space-between',
     },
+    tagRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+    },
+    tagChip: {
+      backgroundColor: colors.bgMuted,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tagText: {
+      fontSize: 11,
+      color: colors.textMuted,
+      fontWeight: typography.weights.medium,
+    },
+    addTagChip: {
+      paddingHorizontal: spacing.xs,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+    },
   }), [colors, themeMode]);
 
   // Construct a comprehensive accessibility label for the card
@@ -119,6 +133,7 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
     isRead ? t.articles.markAsRead : t.articles.unread,
     article.is_favorite === 1 ? t.articles.favorites : null,
     isOffline ? t.articles.offlineLabel : null,
+    article.tags && article.tags.length > 0 ? `Tags: ${article.tags.join(', ')}` : null,
   ].filter(Boolean).join('. ');
 
   return (
@@ -150,20 +165,23 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
           <View style={styles.topRow}>
             <Text style={styles.domain}>{getDomain(article.url)}</Text>
             <View style={styles.rightGroup}>
-              <View 
-                style={[styles.unreadBadge, isRead && styles.inactiveDot]} 
-                accessible={true} 
-                accessibilityLabel={isRead ? t.articles.markAsRead : t.articles.unread} 
+              <Ionicons
+                name={isRead ? "mail-open-outline" : "mail-outline"}
+                size={18}
+                color={isRead ? colors.textMuted : colors.primary}
+                style={{ opacity: isRead ? 0.4 : 1 }}
               />
-              <View 
-                style={[styles.favoriteDot, article.is_favorite !== 1 && styles.inactiveDot]} 
-                accessible={true} 
-                accessibilityLabel={article.is_favorite === 1 ? t.articles.favorites : t.articles.unfavorited} 
+              <Ionicons
+                name={article.is_favorite ? "heart" : "heart-outline"}
+                size={18}
+                color={article.is_favorite ? colors.error : colors.textMuted}
+                style={{ opacity: article.is_favorite ? 1 : 0.3 }}
               />
-              <View 
-                style={[styles.offlineDot, !isOffline && styles.inactiveDot]} 
-                accessible={true} 
-                accessibilityLabel={isOffline ? t.articles.offlineLabel : t.articles.offline} 
+              <Ionicons
+                name={isOffline ? "cloud-done" : "cloud-download-outline"}
+                size={18}
+                color={isOffline ? colors.success : colors.textMuted}
+                style={{ opacity: isOffline ? 1 : 0.3 }}
               />
             </View>
           </View>
@@ -176,6 +194,31 @@ export default function ArticleCard({ article, onPress, onLongPress, isSelected,
             <Text style={styles.excerpt} numberOfLines={2}>
               {article.excerpt}
             </Text>
+          )}
+
+          {/* Tags Row */}
+          {( (article.tags && article.tags.length > 0) || onAddTagPress) && (
+            <View style={styles.tagRow}>
+              {article.tags?.map(tag => (
+                <TouchableOpacity
+                  key={tag}
+                  style={styles.tagChip}
+                  onPress={() => onTagPress?.(tag)}
+                  disabled={selectionMode}
+                >
+                  <Text style={styles.tagText}>#{tag}</Text>
+                </TouchableOpacity>
+              ))}
+              {onAddTagPress && (
+                <TouchableOpacity 
+                  style={styles.addTagChip} 
+                  onPress={onAddTagPress}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="add" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
           <View style={styles.meta}>

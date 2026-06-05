@@ -76,11 +76,11 @@ const RssScreen = () => {
   });
 
   // Get the latest sync time across all feeds
-  const { data: lastSyncTime } = useQuery<number | undefined>({
+  const { data: lastSyncTime } = useQuery<number | null>({
     queryKey: ['rss-last-sync'],
     queryFn: async () => {
       const result = await db.select({ lastSync: max(rssFeeds.last_synced_at) }).from(rssFeeds);
-      return (result[0]?.lastSync || undefined) as number | undefined;
+      return (result[0]?.lastSync || null) as number | null;
     },
   });
 
@@ -108,7 +108,7 @@ const RssScreen = () => {
     <Animated.View style={[styles.container, { backgroundColor }]}>
       <RssHeader 
         title={selectedFeedTitle}
-        lastSyncTime={lastSyncTime}
+        lastSyncTime={lastSyncTime ?? undefined}
         selectedFeedId={selectedFeedId}
         colors={colors}
         onBack={() => {

@@ -6,6 +6,15 @@ const parser = new XMLParser({
   attributeNamePrefix: '@_',
 });
 
+/**
+ * Common paths where RSS/Atom feeds are often found on websites.
+ * These are used as a fallback when discovery via HTML link tags fails.
+ */
+const COMMON_RSS_PATHS = [
+  '/rss', '/feed', '/rss.xml', '/feed.xml', 
+  '/atom.xml', '/index.xml', '/articles.xml'
+];
+
 export interface ParsedRssItem {
   title: string;
   link: string;
@@ -70,12 +79,35 @@ export async function fetchAndParseRss(url: string): Promise<ParsedRssFeed> {
 
 export async function discoverRssUrl(siteUrl: string): Promise<string | null> {
   try {
-    const normalizedUrl = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`;
-    const html = await fetchRawHtml(normalizedUrl);
-    const rssRegex = /<link[^>]+type=["']application\/(rss|atom)\+xml["'][^>]+href=["']([^"']+)["']/i;
-    const match = html.match(rssRegex);
-    if (match && match[2]) {
-      return new URL(match[2], normalizedUrl).href;
+    let normalizedUrl = siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`;
+    // Remove trailing slash to ensure clean path concatenation
+    if (normalizedUrl.endsWith('/')) {
+      normalizedUrl = normalizedUrl.slice(0, -1);
+    }
+
+    // Strategy 1: Attempt to find <link> tags in the website's HTML
+    const html = await fetchRawHtml(normalizedUrl).catch(() => null);
+    
+    if (html) {
+      const rssRegex = /<link[^>]+(?:type=["']application\/(?:rss|atom)\+xml["']|rel=["']alternate["'][^>]+type=["']application\/(?:rss|atom)\+xml["'])[^>]+href=["']([^"']+)["']/gi;
+      let match;
+      while ((match = rssRegex.exec(html)) !== null) {
+        if (match[1]) {
+          return new URL(match[1], normalizedUrl).href;
+        }
+      }
+    }
+
+    // Strategy 2: Fallback to checking common RSS/Atom paths
+    for (const path of COMMON_RSS_PATHS) {
+      const testUrl = `${normalizedUrl}${path}`;
+      try {
+        // Verify validity by attempting to parse the feed
+        await fetchAndParseRss(testUrl);
+        return testUrl;
+      } catch {
+        // Continue to the next common path
+      }
     }
   } catch (e) { console.warn('RSS Discovery failed:', e); }
   return null;

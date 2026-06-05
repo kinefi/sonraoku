@@ -1,52 +1,58 @@
-import * as Crypto from 'expo-crypto';
-import { eq, and, asc, like } from 'drizzle-orm';
 import { db } from '@/lib/db/config';
-import { DbResult, DbAction } from '@/lib/db/types';
+import { DbResult, Tag, TagWithCount } from '@/lib/db/types';
 import * as schema from '@/lib/db/schema';
+import { eq, count } from 'drizzle-orm';
+import * as Crypto from 'expo-crypto';
 
 const { tags, articleTags } = schema;
 
-export async function getTagsForArticle(articleId: string): Promise<DbResult<string[]>> {
+/**
+ * Fetches all tags from the database.
+ */
+export async function getTags(): Promise<DbResult<TagWithCount[]>> {
   try {
-    const results = await db.select({ name: tags.name }).from(tags)
-      .innerJoin(articleTags, eq(tags.id, articleTags.tag_id))
-      .where(eq(articleTags.article_id, articleId)).orderBy(asc(tags.name));
-    return { data: results.map(r => r.name!).filter(Boolean), error: null };
-  } catch (e) { return { data: null, error: e }; }
+    const data = await db.select({
+      id: tags.id,
+      name: tags.name,
+      articleCount: count(articleTags.article_id),
+    })
+    .from(tags)
+    .leftJoin(articleTags, eq(tags.id, articleTags.tag_id))
+    .groupBy(tags.id);
+
+    return { data, error: null };
+  } catch (e) {
+    console.error('Error getting all tags:', e);
+    return { data: null, error: e };
+  }
 }
 
-export async function getAllTags(searchQuery?: string): Promise<DbResult<string[]>> {
+/**
+ * Fetches a single tag by its name.
+ */
+export async function getTagByName(name: string): Promise<DbResult<Tag | null>> {
   try {
-    const q = searchQuery?.trim() ? `%${searchQuery.trim()}%` : null;
-    const results = await db.select({ name: tags.name }).from(tags)
-      .where(q ? like(tags.name, q) : undefined).orderBy(asc(tags.name));
-    return { data: results.map(r => r.name!).filter(Boolean), error: null };
-  } catch (e) { return { data: null, error: e }; }
+    const normalized = name.trim().toLowerCase();
+    const result = await db.select().from(tags).where(eq(tags.name, normalized)).limit(1);
+    return { data: result[0] ?? null, error: null };
+  } catch (e) {
+    console.error('Error getting tag by name:', e);
+    return { data: null, error: e };
+  }
 }
 
-export async function addTagToArticle(articleId: string, tagName: string): Promise<DbAction> {
+/**
+ * Inserts a new tag into the database.
+ * Returns the newly created tag.
+ */
+export async function insertTag(name: string): Promise<DbResult<Tag | null>> {
   try {
-    const name = tagName.trim().toLowerCase();
-    if (!name) return { error: null };
-    const existingTag = await db.select({ id: tags.id }).from(tags).where(eq(tags.name, name)).limit(1);
-    let tagId = existingTag[0]?.id;
-    if (!tagId) {
-      tagId = Crypto.randomUUID();
-      await db.insert(tags).values({ id: tagId, name });
-    }
-    await db.insert(articleTags).values({ article_id: articleId, tag_id: tagId }).onConflictDoNothing();
-    return { error: null };
-  } catch (e) { return { error: e }; }
-}
-
-export async function removeTagFromArticle(articleId: string, tagName: string): Promise<DbAction> {
-  try {
-    const tag = await db.select({ id: tags.id }).from(tags).where(eq(tags.name, tagName.toLowerCase())).limit(1);
-    if (tag[0]) {
-      await db.delete(articleTags).where(
-        and(eq(articleTags.article_id, articleId), eq(articleTags.tag_id, tag[0].id))
-      );
-    }
-    return { error: null };
-  } catch (e) { return { error: e }; }
+    const normalized = name.trim().toLowerCase();
+    const newTagId = Crypto.randomUUID();
+    const result = await db.insert(tags).values({ id: newTagId, name: normalized }).returning();
+    return { data: result[0] ?? null, error: null };
+  } catch (e) {
+    console.error('Error inserting tag:', e);
+    return { data: null, error: e };
+  }
 }

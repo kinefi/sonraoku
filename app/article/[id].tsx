@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo, useContext } from 'react';
 import {
   View,
+  ScrollView,
   StyleSheet,
   Animated,
   ActivityIndicator,
   AccessibilityInfo,
   Text,
+  TouchableOpacity,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,10 +17,16 @@ import { useArticleSpeech, useArticleSettings, useArticleActions, useThemeTransi
 import { queryClient, ParseQueueContext } from '@/lib/reader';
 import {
   getArticleById, markArticleRead,
-  getHighlightsByArticle, getTagsForArticle,
+  getHighlightsByArticle, getTagsForArticle, getTags
 } from '@/lib/db';
 import { sharedStyles, spacing, borderRadius, typography, useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
-import { ReaderView, ArticleMetaHeader, HighlightsModal, TagsModal, ArticleFallback, ReaderFabPill, IconButton } from '@/components';
+import ReaderView from '@/components/reader/ReaderView';
+import ArticleMetaHeader from '@/components/reader/ArticleMetaHeader';
+import HighlightsModal from '@/components/reader/HighlightsModal';
+import TagsModal from '@/components/reader/TagsModal';
+import ArticleFallback from '@/components/reader/ArticleFallback';
+import ReaderFabPill from '@/components/reader/ReaderFabPill';
+import IconButton from '@/components/common/IconButton';
 import { useLanguage } from '@/lib/language';
 
 export default function ArticleScreen() {
@@ -104,14 +112,27 @@ export default function ArticleScreen() {
     enabled: !!id,
   });
 
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['allTags'],
+    queryFn: async () => {
+      const { data } = await getTags();
+      return data || [];
+    },
+  });
+
   const { data: tags = [] } = useQuery({
-    queryKey: ['tags', id],
+    queryKey: ['articleTags', id], // Renamed query key to avoid conflict with 'allTags'
     queryFn: async () => {
       const { data } = await getTagsForArticle(id!);
       return data || [];
     },
     enabled: !!id,
   });
+
+  // Memoize highlights to ensure stability in ReaderView
+  const memoizedHighlights = useMemo(() => highlights, [highlights]);
+  // Memoize tags for display
+  const memoizedTags = useMemo(() => tags, [tags]);
 
   const handleScrollProgress = useCallback((progress: number) => {
     scrollProgress.setValue(progress);
@@ -123,9 +144,22 @@ export default function ArticleScreen() {
   }, [scrollProgress, preservedProgress]);
 
   const handleAddTag = useCallback(() => {
-    runAddTag(newTag);
+    runAddTag(newTag); // This adds the tag to the current article
+    // Invalidate allTags query so the new tag appears in the batch tagging modal
+    queryClient.invalidateQueries({ queryKey: ['allTags'] });
+    queryClient.invalidateQueries({ queryKey: ['articleTags', id] }); // Invalidate current article's tags
     setNewTag('');
-  }, [runAddTag, newTag]);
+  }, [runAddTag, newTag, id]);
+
+  const handleToggleTag = useCallback((tag: any) => {
+    const isSelected = tags.some(t => t.name === tag.name);
+    if (isSelected) {
+      handleRemoveTag(tag.name);
+    } else {
+      runAddTag(tag.name);
+    }
+    queryClient.invalidateQueries({ queryKey: ['articleTags', id] });
+  }, [tags, handleRemoveTag, runAddTag, id]);
 
   const scrollFillHeight = scrollProgress.interpolate({
     inputRange: [0, 1],
@@ -169,6 +203,24 @@ export default function ArticleScreen() {
       width: 44,
       ...sharedStyles(colors).floating,
     },
+    tagOverlay: {
+      position: 'absolute',
+      top: spacing.md,
+      left: spacing.lg,
+      right: 64, // Clear scroll track and side FAB
+      zIndex: 10,
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    tagChip: {
+      backgroundColor: colors.bgMuted + 'E6', // 90% opacity
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: borderRadius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...sharedStyles(colors).floating,
+    },
     progressText: {
       fontSize: 10,
       fontWeight: typography.weights.bold,
@@ -179,6 +231,11 @@ export default function ArticleScreen() {
     sideActionBtn: {
       width: 36,
       height: 36,
+    },
+    tagText: {
+      fontSize: 11,
+      color: colors.textMuted,
+      fontWeight: typography.weights.medium,
     },
   }), [colors]);
 
@@ -202,6 +259,30 @@ export default function ArticleScreen() {
             style={styles.readerWrapper}
             onLayout={(e) => setReaderHeight(e.nativeEvent.layout.height)}
           >
+            {/* Floating Tags Row */}
+            {memoizedTags.length > 0 && (
+              <View 
+                style={styles.tagOverlay}
+                pointerEvents="box-none"
+              >
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: spacing.xs }}
+                >
+                  {memoizedTags.map(tag => (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={styles.tagChip}
+                      onPress={() => router.push({ pathname: '/', params: { tag: tag.name } })}
+                    >
+                      <Text style={styles.tagText}>#{tag.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
             <ReaderView
               key={article.id}
               html={article.html_content}
@@ -209,7 +290,7 @@ export default function ArticleScreen() {
               fontSize={fontSize}
               fontFamily={fontFamily}
               defaultColor={defaultColor}
-              highlights={highlights}
+              highlights={memoizedHighlights}
               onMessage={handleReaderMessage}
               onScrollProgress={handleScrollProgress}
               scrollToHighlightId={targetHighlightId}
@@ -266,7 +347,10 @@ export default function ArticleScreen() {
           onRefresh={handleFetchAgain}
           hasContent={!!article.html_content}
           isFavorite={!!article.is_favorite}
-          onFavoriteToggle={() => handleToggleFavorite(!article.is_favorite)}
+          onFavoriteToggle={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            handleToggleFavorite(!article.is_favorite);
+          }}
         />
 
         {showHighlights && (
@@ -288,11 +372,13 @@ export default function ArticleScreen() {
           <TagsModal
             visible={showTags}
             onClose={() => setShowTags(false)}
-            tags={tags}
+            tags={memoizedTags} // Pass Tag[] directly
+            availableTags={allTags}
             newTag={newTag}
             setNewTag={setNewTag}
             onAddTag={handleAddTag}
             onRemoveTag={handleRemoveTag}
+            onToggleTag={handleToggleTag}
           />
         )}
       </SafeAreaView>

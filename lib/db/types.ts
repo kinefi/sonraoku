@@ -19,6 +19,10 @@ export type RssItem = typeof rssItems.$inferSelect;
 /**
  * Joined Types for UI
  */
+export type ArticleWithTags = Article & { tags: string[] };
+export type TagWithCount = Tag & { articleCount: number };
+export type HighlightWithArticle = Highlight & { article_title: string | null };
+
 export interface RssItemWithFeed {
   id: string;
   feedId: string;

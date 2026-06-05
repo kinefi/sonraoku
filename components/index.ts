@@ -12,6 +12,7 @@ export { default as SyncIndicator } from '@/components/common/SyncIndicator';
 export { default as RssAddModal } from '@/components/rss/RssAddModal';
 export { default as RssFilterRow } from '@/components/rss/RssFilterRow';
 export { default as RssItem } from '@/components/rss/RssItem';
+export { default as SwipeableRssItem } from '@/components/rss/SwipeableRssItem';
 export { default as RssManageSheet } from '@/components/rss/RssManageSheet';
 export { default as RssSearchBar } from '@/components/rss/RssSearchBar';
 export { default as RssSourceHeader } from '@/components/rss/RssSourceHeader';

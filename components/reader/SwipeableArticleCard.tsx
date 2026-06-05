@@ -3,21 +3,22 @@ import { Text, StyleSheet, AccessibilityInfo } from 'react-native';
 import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
  
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { queryClient } from '@/lib/reader';
-import { Article, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '@/lib/db';
+import { queryClient } from '@/lib/reader'; // queryClient is from lib/reader
+import { ArticleWithTags, archiveArticle, unarchiveArticle, markArticleRead, markArticleUnread } from '@/lib/db'; // ArticleWithTags from lib/db
 import ArticleCard from '@/components/reader/ArticleCard';
 import IconButton from '@/components/common/IconButton';
 import { useLanguage } from '@/lib/language';
 
 type Props = {
-  article: Article;
+  article: ArticleWithTags; // Update type to include tags
   onPress: () => void;
   onLongPress?: () => void;
   isSelected?: boolean;
   selectionMode?: boolean;
+  onTagPress?: (tag: string) => void;
 };
 
-export default function SwipeableArticleCard({ article, onPress, onLongPress, isSelected, selectionMode }: Props) {
+export default function SwipeableArticleCard({ article, onPress, onLongPress, isSelected, selectionMode, onTagPress }: Props) {
   const { t } = useLanguage();
   const { colors } = useTheme();
   const swipeableRef = useRef<Swipeable>(null);
@@ -81,7 +82,7 @@ export default function SwipeableArticleCard({ article, onPress, onLongPress, is
 
   function renderLeftActions() {
     const label = article.is_read ? t.articles.markAsUnread : t.articles.markAsRead;
-    const icon = article.is_read ? 'mail-unread-outline' : 'checkmark-circle-outline';
+    const icon = article.is_read ? 'mail-open-outline' : 'mail-outline';
     return (
       <IconButton
         name={icon}
@@ -133,6 +134,7 @@ export default function SwipeableArticleCard({ article, onPress, onLongPress, is
         onLongPress={onLongPress}
         isSelected={isSelected}
         selectionMode={selectionMode}
+        onTagPress={onTagPress}
       />
     </Swipeable>
   );

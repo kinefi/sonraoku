@@ -38,7 +38,7 @@ export const highlights = sqliteTable('highlights', {
 
 export const tags = sqliteTable('tags', {
   id: text('id').primaryKey(),
-  name: text('name').unique(),
+  name: text('name').unique().notNull(),
 });
 
 export const articleTags = sqliteTable('article_tags', {
@@ -67,6 +67,7 @@ export const rssItems = sqliteTable('rss_items', {
   author: text('author'),
   pub_date: integer('pub_date'),
   is_read: integer('is_read').notNull().default(0),
+  is_deleted: integer('is_deleted').notNull().default(0),
 }, (t) => ({
   feedLinkIdx: index('feed_link_idx').on(t.feed_id, t.link),
 }));

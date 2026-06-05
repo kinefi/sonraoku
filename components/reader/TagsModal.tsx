@@ -6,38 +6,46 @@ import {
   TouchableOpacity,
   TextInput,
   StyleSheet,
+  ScrollView,
 } from 'react-native';
 import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
 import IconButton from '@/components/common/IconButton';
+import { Tag } from '@/lib/db/types';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  tags: string[];
+  tags: Tag[]; // Expect Tag objects
+  availableTags?: Tag[];
   newTag: string;
   setNewTag: (text: string) => void;
   onAddTag: () => void;
   onRemoveTag: (tagName: string) => void;
+  onToggleTag?: (tag: Tag) => void;
 };
 
 export default function TagsModal({
   visible,
   onClose,
   tags,
+  availableTags = [],
   newTag,
   setNewTag,
   onAddTag,
   onRemoveTag,
+  onToggleTag,
 }: Props) {
   const { t } = useLanguage();
   const { colors } = useTheme();
+
+  const currentTagNames = useMemo(() => tags.map(t => t.name), [tags]);
 
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),
     modalBackdrop: { flex: 1, backgroundColor: colors.overlay },
     modalContent: {
-      height: '60%',
+      height: '75%',
       backgroundColor: colors.bgPage,
       borderTopLeftRadius: borderRadius.xxl,
       borderTopRightRadius: borderRadius.xxl,
@@ -68,17 +76,43 @@ export default function TagsModal({
       borderRadius: borderRadius.lg,
       paddingHorizontal: spacing.xl,
     },
-    tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl, gap: spacing.sm },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textMuted,
+      paddingHorizontal: spacing.xl,
+      marginTop: spacing.md,
+      marginBottom: spacing.xs,
+      textTransform: 'uppercase',
+    },
+    tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl, gap: spacing.sm, paddingBottom: spacing.lg },
     tagBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.bgMuted,
-      paddingHorizontal: spacing.md,
+      paddingLeft: spacing.md,
+      paddingRight: spacing.xs,
       paddingVertical: spacing.sm - 2,
       borderRadius: borderRadius.xxl,
-      gap: spacing.sm - 2,
+      gap: 2,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     tagBadgeText: { fontSize: 14, color: colors.textPrimary },
+    suggestedTag: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      backgroundColor: colors.bgPage,
+      borderRadius: borderRadius.xxl,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    suggestedTagSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    suggestedTagText: { fontSize: 13, color: colors.textSecondary },
+    suggestedTagTextSelected: { color: colors.white, fontWeight: '600' },
   }), [colors]);
 
   return (
@@ -114,20 +148,49 @@ export default function TagsModal({
           />
         </View>
 
-        <View style={styles.tagsContainer}>
-          {tags.map((tag) => (
-            <View key={tag} style={styles.tagBadge}>
-              <Text style={styles.tagBadgeText}>{tag}</Text>
-              <IconButton
-                name="close-circle"
-                size={16}
-                color={colors.textSecondary}
-                onPress={() => onRemoveTag(tag)}
-                accessibilityLabel={t.common.delete}
-              />
-            </View>
-          ))}
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {tags.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>{t.nav.tags}</Text>
+              <View style={styles.tagsContainer}>
+                {tags.map((tag) => (
+                  <View key={tag.id} style={styles.tagBadge}>
+                    <Text style={styles.tagBadgeText}>{tag.name}</Text>
+                    <IconButton
+                      name="close-circle"
+                      size={18}
+                      color={colors.textMuted}
+                      onPress={() => onRemoveTag(tag.name)}
+                      accessibilityLabel={t.common.delete}
+                    />
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          {availableTags.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>{t.common.all}</Text>
+              <View style={styles.tagsContainer}>
+                {availableTags.map((tag) => {
+                  const isSelected = currentTagNames.includes(tag.name);
+                  return (
+                    <TouchableOpacity
+                      key={tag.id}
+                      style={[styles.suggestedTag, isSelected && styles.suggestedTagSelected]}
+                      onPress={() => onToggleTag?.(tag)}
+                    >
+                      <Text style={[styles.suggestedTagText, isSelected && styles.suggestedTagTextSelected]}>
+                        {tag.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
+          )}
+        </ScrollView>
       </View>
     </Modal>
   );

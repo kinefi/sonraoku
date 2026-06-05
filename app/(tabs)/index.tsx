@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { Article } from '@/lib/db';
+import { ArticleWithTags } from '@/lib/db';
 import { useLanguage } from '@/lib/language';
 import { sharedStyles, spacing, borderRadius, typography, useTheme } from '@/lib/theme';
 import { useThemeTransition, useReadingList, useDeduplicatedInfiniteData } from '@/lib/hooks';
@@ -53,10 +53,11 @@ export default function Index() {
 
   const hasReadArticles = filtered.some((a) => a.is_read === 1);
 
-  const renderArticleItem = useCallback(({ item }: { item: Article }) => (
+  const renderArticleItem = useCallback(({ item }: { item: ArticleWithTags }) => (
     <SwipeableArticleCard 
       article={item} 
       onPress={() => router.push(`/article/${item.id}`)} 
+      onTagPress={(tagName) => router.setParams({ tag: tagName })}
     />
   ), []);
 
@@ -155,6 +156,15 @@ export default function Index() {
 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>{t.nav.readingList}</Text>
+          {tag && (
+            <IconButton
+              name="close-circle-outline"
+              size={22}
+              color={colors.primary}
+              onPress={() => router.setParams({ tag: undefined })}
+              accessibilityLabel={t.common.cancel}
+            />
+          )}
         </View>
 
         {/* Search Bar */}

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { getAllTags } from '@/lib/db';
+import { getTags } from '@/lib/db/tags';
 import { useLanguage } from '@/lib/language';
 import { sharedStyles, useTheme } from '@/lib/theme';
 import { useThemeTransition } from '@/lib/hooks';
@@ -15,11 +15,13 @@ export default function TagsScreen() {
   const [showSheet, setShowSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { data: tags = [], isFetching, refetch } = useQuery({
-    queryKey: ['tags', 'all', searchQuery],
+    queryKey: ['allTags', searchQuery],
     queryFn: async () => {
-      const res = await getAllTags(searchQuery);
+      const res = await getTags();
       if (res.error) throw res.error;
-      return res.data || [];
+      const all = res.data || [];
+      if (!searchQuery) return all;
+      return all.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase()));
     },
   });
 
@@ -45,6 +47,15 @@ export default function TagsScreen() {
       fontSize: 16,
       color: colors.textPrimary,
       textTransform: 'capitalize',
+    },
+    tagCount: {
+      fontSize: 14,
+      color: colors.textMuted,
+      backgroundColor: colors.bgMuted,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: 10,
+      overflow: 'hidden',
     },
     empty: {
       flex: 1,
@@ -74,7 +85,7 @@ export default function TagsScreen() {
         />
         <FlatList
           data={tags}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.id}
           refreshControl={
             <RefreshControl
               refreshing={isFetching}
@@ -86,10 +97,11 @@ export default function TagsScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.tagItem}
-              onPress={() => router.push({ pathname: '/', params: { tag: item } })}
+              onPress={() => router.push({ pathname: '/', params: { tag: item.name } })}
             >
               <IconButton name="pricetag-outline" size={20} color={colors.primary} passive />
-              <Text style={styles.tagText}>{item}</Text>
+              <Text style={styles.tagText}>{item.name}</Text>
+              <Text style={styles.tagCount}>{item.articleCount}</Text>
               <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
             </TouchableOpacity>
           )}

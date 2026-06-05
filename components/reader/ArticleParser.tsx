@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLanguage } from '@/lib/language';
-import { useArticleParser } from '@/lib/hooks';
+import { useArticleParser } from '@/lib/hooks/useArticleParser';
 import { ParseResult } from '@/types/reader';
 
 type Props = {

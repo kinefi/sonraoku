@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { useTheme, borderRadius, spacing, typography, sharedStyles } from '@/lib/theme';
-import { IconButton } from '@/components';
+import IconButton from '@/components/common/IconButton';
 
 type ToastType = 'success' | 'error' | 'info';
 
