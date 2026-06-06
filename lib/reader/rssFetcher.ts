@@ -89,11 +89,12 @@ export async function discoverRssUrl(siteUrl: string): Promise<string | null> {
     const html = await fetchRawHtml(normalizedUrl).catch(() => null);
     
     if (html) {
-      const rssRegex = /<link[^>]+(?:type=["']application\/(?:rss|atom)\+xml["']|rel=["']alternate["'][^>]+type=["']application\/(?:rss|atom)\+xml["'])[^>]+href=["']([^"']+)["']/gi;
+      const rssRegex = /<link\b[^>]*?(?:type=["']application\/(?:rss|atom)\+xml(?:;[^"']*)?["'][^>]*?href=["']([^"']+)["']|href=["']([^"']+)["'][^>]*?type=["']application\/(?:rss|atom)\+xml(?:;[^"']*)?["'])[\s\S]*?>/gi;
       let match;
       while ((match = rssRegex.exec(html)) !== null) {
-        if (match[1]) {
-          return new URL(match[1], normalizedUrl).href;
+        const href = match[1] || match[2];
+        if (href) {
+          return new URL(href, normalizedUrl).href;
         }
       }
     }

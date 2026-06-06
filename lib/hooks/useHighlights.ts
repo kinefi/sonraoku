@@ -37,10 +37,13 @@ export function useHighlights() {
     ]);
   }, [t]);
 
-  const handleShare = useCallback(async (text: string, title?: string | null) => {
+  const handleShare = useCallback(async (text: string, url?: string | null) => {
     try {
+      const quote = `"${text}"`;
+      const message = url ? `${quote}\n\n${url}` : quote;
       await Share.share({
-        message: title ? `"${text}"\n\n— ${title}` : text,
+        message,
+        url: url ?? undefined,
       });
     } catch (e) {
       console.error(e);

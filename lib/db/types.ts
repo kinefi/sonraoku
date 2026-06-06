@@ -21,7 +21,7 @@ export type RssItem = typeof rssItems.$inferSelect;
  */
 export type ArticleWithTags = Article & { tags: string[] };
 export type TagWithCount = Tag & { articleCount: number };
-export type HighlightWithArticle = Highlight & { article_title: string | null };
+export type HighlightWithArticle = Highlight & { article_title: string | null; article_url: string | null };
 
 export interface RssItemWithFeed {
   id: string;

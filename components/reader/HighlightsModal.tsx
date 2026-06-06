@@ -1,9 +1,10 @@
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet, Alert, Share } from 'react-native';
 import { Highlight } from '@/lib/db';
 import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
 import IconButton from '@/components/common/IconButton';
+import { getArticleById } from '@/lib/db/articles';
 
 type Props = {
   visible: boolean;
@@ -109,6 +110,27 @@ export default function HighlightsModal({ visible, onClose, highlights, onSelect
                     onPress={() => confirmDelete(item.id)} 
                   />
                 )}
+                <IconButton
+                  name="share-outline"
+                  size={18}
+                  color={colors.primary}
+                  onPress={async () => {
+                    try {
+                      const { data } = await getArticleById(item.article_id);
+                      const articleUrl = data?.url ?? undefined;
+                      const quote = `"${item.selected_text}"`;
+                      const message = articleUrl ? `${quote}\n\n${articleUrl}` : quote;
+                      await Share.share({
+                        message,
+                        url: articleUrl,
+                        title: data?.title ?? undefined,
+                      });
+                    } catch (e) {
+                      console.warn('Share highlight failed', e);
+                      Alert.alert(t.common.share, t.errors.parseFailed);
+                    }
+                  }}
+                />
                 <IconButton name="chevron-forward" size={16} color={colors.textFaint} passive />
               </View>
             </TouchableOpacity>

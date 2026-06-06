@@ -42,7 +42,7 @@ export default function HighlightsScreen() {
       paddingRight: 10,
     },
     actionBtn: {
-      padding: 10,
+      padding: 12,
     },
     articleTitle: {
       fontSize: 11,
@@ -114,7 +114,7 @@ export default function HighlightsScreen() {
         <IconButton
           name="share-social-outline"
           size={18}
-          onPress={() => handleShare(item.selected_text)}
+          onPress={() => handleShare(item.selected_text, item.article_url)}
           accessibilityLabel={t.common.share}
         />
         <IconButton

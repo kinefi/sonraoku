@@ -29,9 +29,12 @@ export default function IconButton({ name, label, size = 24, color, style, child
 
   const styles = useMemo(() => StyleSheet.create({
     base: {
-      padding: spacing.xs,
+      padding: spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
+      flexShrink: 1,
+      minWidth: 44,
+      minHeight: 44,
     },
     filled: {
       backgroundColor: themeColor,
@@ -51,6 +54,10 @@ export default function IconButton({ name, label, size = 24, color, style, child
       fontSize: 16,
       fontWeight: typography.weights.bold,
       textAlign: 'center',
+      flexShrink: 1,
+      flexWrap: 'wrap',
+      maxWidth: '100%',
+      lineHeight: 20,
     },
   }), [themeColor]);
 
@@ -73,7 +80,9 @@ export default function IconButton({ name, label, size = 24, color, style, child
       {loading && <ActivityIndicator size="small" color={contentColor} />}
       {!loading && name && <Ionicons name={name} size={size} color={contentColor} />}
       {!loading && label && (
-        <Text style={[styles.label, { color: contentColor }, name && { marginTop: spacing.xs }, labelStyle]}>
+        <Text
+          style={[styles.label, { color: contentColor }, name && { marginTop: spacing.xs }, labelStyle]}
+        >
           {label}
         </Text>
       )}

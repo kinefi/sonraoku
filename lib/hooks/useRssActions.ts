@@ -28,9 +28,11 @@ export function useRssActions() {
   const { clearStatus } = useBackgroundSyncStatus(); // This hook is in lib/hooks, not lib/db
   const lastDeletedItem = useRef<RssItem | null>(null);
 
-  const invalidateRss = useCallback(() => {
+  const invalidateRss = useCallback(async () => {
     queryClient.invalidateQueries({ queryKey: ['rss-items'] });
     queryClient.invalidateQueries({ queryKey: ['rss-feeds-list'] });
+    await queryClient.refetchQueries({ queryKey: ['rss-items'], exact: false, type: 'active' });
+    await queryClient.refetchQueries({ queryKey: ['rss-feeds-list'], exact: false, type: 'active' });
   }, [queryClient]);
 
   const addFeedMutation = useMutation({

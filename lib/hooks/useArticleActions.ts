@@ -1,4 +1,4 @@
-import { useState, useCallback, useContext } from 'react';
+import { useState, useCallback } from 'react';
 import { Share } from 'react-native';
 import { useLanguage } from '@/lib/language';
 import { useToast } from '@/lib/toast';
@@ -10,13 +10,13 @@ import {
   insertHighlight, deleteHighlight, toggleFavoriteArticle 
 } from '@/lib/db';
 import type { Highlight, Article } from '@/lib/db/types';
-import { queryClient, ParseQueueContext, buildParserHtml } from '@/lib/reader';
+import { queryClient, useParseQueue, buildParserHtml } from '@/lib/reader';
 import { useOptimisticMutation } from '@/lib/hooks/useOptimisticMutation';
 
 export function useArticleActions(articleId?: string, url?: string, title?: string | null) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { addToQueue } = useContext(ParseQueueContext);
+  const { addToQueue } = useParseQueue();
   const [isFetching, setIsFetching] = useState(false);
   const [fetchStatus, setFetchStatus] = useState<'idle' | 'fetching' | 'success' | 'error' | null>(null);
 
@@ -61,15 +61,15 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
       showToast({ message: t.errors.resultReadError, type: 'error' });
       return;
     }
-    queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
-    queryClient.invalidateQueries({ queryKey: ['tags', 'all'] });
+    queryClient.invalidateQueries({ queryKey: ['articleTags', articleId] });
+    queryClient.invalidateQueries({ queryKey: ['allTags'] });
     showToast({ message: t.tags.added, type: 'success' });
   }, [articleId, t, showToast]);
 
   const handleRemoveTag = useCallback(async (tagName: string) => {
     if (!articleId) return;
     await removeTagFromArticle(articleId, tagName);
-    queryClient.invalidateQueries({ queryKey: ['tags', articleId] });
+    queryClient.invalidateQueries({ queryKey: ['articleTags', articleId] });
   }, [articleId]);
 
   const favoriteMutation = useOptimisticMutation<Article, boolean>(
@@ -102,7 +102,11 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
 
   const handleDeleteHighlight = useCallback((highlightId: string) => {
     if (!articleId) return;
-    deleteHighlightMutation.mutate(highlightId);
+    deleteHighlightMutation.mutate(highlightId, {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ['highlights'], exact: false });
+      },
+    });
   }, [articleId, deleteHighlightMutation]);
 
   const handleReaderMessage = useCallback(async (msg: ReaderMessage) => {
@@ -115,6 +119,10 @@ export function useArticleActions(articleId?: string, url?: string, title?: stri
         context_before: msg.contextBefore,
         context_after: msg.contextAfter,
         created_at: Date.now(),
+      }, {
+        onSettled: () => {
+          queryClient.invalidateQueries({ queryKey: ['highlights'], exact: false });
+        },
       });
     } else if (msg.type === 'delete-highlight') {
       await handleDeleteHighlight(msg.id);

@@ -7,6 +7,7 @@ export { default as SegmentedControl } from '@/components/common/SegmentedContro
 export { default as SettingsRow } from '@/components/common/SettingsRow';
 export { default as SettingsSection } from '@/components/common/SettingsSection';
 export { default as SyncIndicator } from '@/components/common/SyncIndicator';
+export { default as UserGuideModal } from '@/components/common/UserGuideModal';
 
 // RSS Components
 export { default as RssAddModal } from '@/components/rss/RssAddModal';

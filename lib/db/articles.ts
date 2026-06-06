@@ -1,9 +1,9 @@
-import { eq, and, or, like, desc, isNotNull, exists, inArray } from 'drizzle-orm';
+import { eq, and, or, desc, isNotNull, exists, inArray, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/config';
 import { DbResult, DbAction, Article, ArticleWithTags, Tag } from '@/lib/db/types';
 import * as schema from '@/lib/db/schema';
 import { sanitizeSqlString } from '@/lib/utils';
-import { getTagByName, insertTag } from '@/lib/db/tags'; // Import tag utilities
+import * as Crypto from 'expo-crypto';
 
 const { articles, tags, articleTags } = schema;
 
@@ -37,36 +37,53 @@ export async function addTagsToArticles(articleIds: string[], tagNames: string[]
     }
 
     const normalizedTagNames = tagNames.map(n => n.trim().toLowerCase()).filter(Boolean);
+    if (normalizedTagNames.length === 0) {
+      return { error: null };
+    }
     const now = Date.now();
-    const articleTagInsertValues: { article_id: string; tag_id: string }[] = [];
 
-    // Ensure all tags exist and get their IDs
-    const tagIds: string[] = [];
-    for (const tagName of normalizedTagNames) {
-      let tag = (await getTagByName(tagName)).data; // getTagByName will also normalize
-      if (!tag) {
-        tag = (await insertTag(tagName)).data;
-        if (!tag) throw new Error(`Failed to create tag: ${tagName}`);
+    await db.transaction(async (tx) => {
+      // 1. Fetch existing tags that match normalized names in a single query
+      const existingTags = await tx
+        .select()
+        .from(tags)
+        .where(inArray(tags.name, normalizedTagNames));
+      
+      const existingTagsMap = new Map(existingTags.map(t => [t.name, t.id]));
+      
+      // 2. Identify missing tags and batch insert them if any
+      const missingTagNames = normalizedTagNames.filter(name => !existingTagsMap.has(name));
+      if (missingTagNames.length > 0) {
+        const newTagsToInsert = missingTagNames.map(name => ({
+          id: Crypto.randomUUID(),
+          name,
+        }));
+        const inserted = await tx.insert(tags).values(newTagsToInsert).returning();
+        for (const tag of inserted) {
+          existingTagsMap.set(tag.name, tag.id);
+        }
       }
-      tagIds.push(tag.id);
-    }
 
-    // Prepare article_tags entries
-    for (const articleId of articleIds) {
-      for (const tagId of tagIds) {
-        articleTagInsertValues.push({ article_id: articleId, tag_id: tagId });
+      // 3. Prepare article_tags entries
+      const articleTagInsertValues: { article_id: string; tag_id: string }[] = [];
+      const tagIds = Array.from(existingTagsMap.values());
+      
+      for (const articleId of articleIds) {
+        for (const tagId of tagIds) {
+          articleTagInsertValues.push({ article_id: articleId, tag_id: tagId });
+        }
       }
-    }
 
-    // Insert article_tags (batch insert)
-    if (articleTagInsertValues.length > 0) {
-      await db.insert(articleTags).values(articleTagInsertValues).onConflictDoNothing(); // Avoid duplicates
-    }
+      // 4. Batch insert article_tags
+      if (articleTagInsertValues.length > 0) {
+        await tx.insert(articleTags).values(articleTagInsertValues).onConflictDoNothing();
+      }
 
-    // Update updated_at for affected articles
-    await db.update(articles)
-      .set({ updated_at: now })
-      .where(inArray(articles.id, articleIds));
+      // 5. Update updated_at for affected articles
+      await tx.update(articles)
+        .set({ updated_at: now })
+        .where(inArray(articles.id, articleIds));
+    });
 
     return { error: null };
   } catch (e) {
@@ -89,14 +106,26 @@ export async function removeTagsFromArticles(articleIds: string[], tagNames: str
       return { error: null };
     }
 
-    const now = Date.now();
-    const tagsToRemove = await db.select({ id: tags.id }).from(tags).where(inArray(tags.name, tagNames));
-    const tagIdsToRemove = tagsToRemove.map(t => t.id);
-
-    if (tagIdsToRemove.length > 0) {
-      await db.delete(articleTags).where(and(inArray(articleTags.article_id, articleIds), inArray(articleTags.tag_id, tagIdsToRemove)));
+    const normalizedTagNames = tagNames
+      .map((name) => name.trim().toLowerCase())
+      .filter(Boolean);
+    if (normalizedTagNames.length === 0) {
+      return { error: null };
     }
-    await db.update(articles).set({ updated_at: now }).where(inArray(articles.id, articleIds));
+
+    const now = Date.now();
+    await db.transaction(async (tx) => {
+      const tagsToRemove = await tx.select({ id: tags.id }).from(tags).where(inArray(tags.name, normalizedTagNames));
+      const tagIdsToRemove = tagsToRemove.map(t => t.id);
+
+      if (tagIdsToRemove.length > 0) {
+        await tx.delete(articleTags).where(and(
+          inArray(articleTags.article_id, articleIds),
+          inArray(articleTags.tag_id, tagIdsToRemove)
+        ));
+      }
+      await tx.update(articles).set({ updated_at: now }).where(inArray(articles.id, articleIds));
+    });
 
     return { error: null };
   } catch (e) { return { error: e }; }
@@ -119,11 +148,13 @@ export async function getArticles(
     if (trimmedSearch.length >= 2) {
       const q = `%${trimmedSearch.toLowerCase()}%`;
       clauses.push(or(
-        like(articles.title, q), like(articles.url, q), like(articles.excerpt, q),
+        sql`LOWER(${articles.title}) LIKE ${q}`,
+        sql`LOWER(${articles.url}) LIKE ${q}`,
+        sql`LOWER(${articles.excerpt}) LIKE ${q}`,
         exists(
           db.select().from(articleTags)
             .innerJoin(tags, eq(articleTags.tag_id, tags.id))
-            .where(and(eq(articleTags.article_id, articles.id), like(tags.name, q)))
+            .where(and(eq(articleTags.article_id, articles.id), sql`LOWER(${tags.name}) LIKE ${q}`))
         )
       ));
     }

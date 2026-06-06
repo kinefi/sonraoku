@@ -8,12 +8,14 @@ export type ParseQueueItem = {
   retries?: number;
 };
 
-type ParseQueueContextType = {
+export type ParseQueueContextType = {
   addToQueue: (item: ParseQueueItem) => void;
+  parseQueue: ParseQueueItem[];
 };
 
 export const ParseQueueContext = createContext<ParseQueueContextType>({
   addToQueue: () => {},
+  parseQueue: [],
 });
 
 export function useParseQueue() {

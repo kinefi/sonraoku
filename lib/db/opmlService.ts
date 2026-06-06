@@ -93,17 +93,14 @@ export async function importOpml(
     await Promise.all(workers);
 
     if (validatedFeeds.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const feed of validatedFeeds) {
-          await tx.insert(rssFeeds).values({
-            id: nanoid(),
-            url: feed.url,
-            title: sanitizeSqlString(feed.title),
-            site_url: feed.siteUrl,
-            created_at: Date.now(),
-          }).onConflictDoNothing();
-        }
-      });
+      const values = validatedFeeds.map(feed => ({
+        id: nanoid(),
+        url: feed.url,
+        title: sanitizeSqlString(feed.title),
+        site_url: feed.siteUrl,
+        created_at: Date.now(),
+      }));
+      await db.insert(rssFeeds).values(values).onConflictDoNothing();
     }
 
     return { error: null, successCount, skippedCount };

@@ -14,7 +14,6 @@ import {
   RssManageSheet, 
   RssAddModal, 
   RssSearchBar, 
-  RssFilterRow,
   RssHeader,
   RssSyncProgress 
 } from '@/components';
@@ -26,7 +25,7 @@ const RssScreen = () => {
 
   const { 
     addFeedMutation,  
-    markAllReadMutation, clearReadMutation, deleteAllMutation, 
+    markAllReadMutation, deleteAllMutation, 
     markFeedReadMutation, deleteFeedMutation, syncAllMutation, 
     importMutation, exportMutation 
   } = useRssActions();
@@ -123,16 +122,6 @@ const RssScreen = () => {
         placeholder={t.rss.searchPlaceholder}
       />
 
-      <RssFilterRow 
-        sortOrder={sortOrder}
-        onToggleSort={() => setSortOrder(prev => prev === 'alpha' ? 'unread' : 'alpha')}
-        isUnreadOnly={isUnreadOnly}
-        onToggleUnreadOnly={() => setIsUnreadOnly(!isUnreadOnly)}
-        onManage={() => setIsManageModalVisible(true)}
-        onClearRead={() => clearReadMutation.mutate()}
-        onMarkAllRead={() => markAllReadMutation.mutate()}
-      />
-
       <RssSyncProgress 
         isVisible={isSyncing}
         isImporting={importMutation.isPending}
@@ -157,6 +146,8 @@ const RssScreen = () => {
               if (selectedFeedId) { setSelectedFeedId(null); setSelectedFeedTitle(null); }
               else toggleSection(id);
             }}
+            onDeleteFeed={(id) => deleteFeedMutation.mutate(id)}
+            onMarkFeedRead={(id) => markFeedReadMutation.mutate(id)}
           />
         )}
         stickySectionHeadersEnabled={true}
@@ -187,6 +178,35 @@ const RssScreen = () => {
       <FabGroup
         actions={[
           {
+            icon: 'settings-outline',
+            iconSize: 20,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsManageModalVisible(true); },
+            haptic: Haptics.ImpactFeedbackStyle.Light,
+            variant: 'ghost',
+          },
+          {
+            icon: 'checkmark-done-outline',
+            iconSize: 20,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); markAllReadMutation.mutate(); },
+            haptic: Haptics.ImpactFeedbackStyle.Medium,
+            variant: 'ghost',
+          },
+          {
+            icon: isUnreadOnly ? 'eye-off-outline' : 'eye-outline',
+            iconSize: 20,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsUnreadOnly(!isUnreadOnly); },
+            haptic: Haptics.ImpactFeedbackStyle.Light,
+            variant: isUnreadOnly ? 'filled' : 'ghost',
+          },
+          {
+            icon: 'swap-vertical-outline',
+            iconSize: 20,
+            onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSortOrder(prev => prev === 'alpha' ? 'unread' : 'alpha'); },
+            haptic: Haptics.ImpactFeedbackStyle.Light,
+            variant: 'ghost',
+            accessibilityLabel: sortOrder === 'alpha' ? t.articles.unread : t.articles.sortAlpha,
+          },
+          {
             icon: 'add',
             iconSize: 24,
             onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setIsAddModalVisible(true); },
@@ -213,11 +233,11 @@ const RssScreen = () => {
         feeds={feeds || []}
         onReorder={() => {}} // Disabled as we are moving to automatic sorting
         onDeleteFeed={(id) => deleteFeedMutation.mutate(id)}
+        onDeleteFeeds={(ids: string[]) => ids.forEach((id) => deleteFeedMutation.mutate(id))}
         onMarkFeedRead={(id) => markFeedReadMutation.mutate(id)}
         onImport={handleImport}
         onExport={() => exportMutation.mutate()}
         onDeleteAll={() => deleteAllMutation.mutate()}
-        onClearRead={() => clearReadMutation.mutate()}
       />
     </Animated.View>
   );

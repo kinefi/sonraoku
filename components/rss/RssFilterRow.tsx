@@ -7,21 +7,11 @@ import IconButton from '@/components/common/IconButton';
 interface RssFilterRowProps {
   sortOrder: 'alpha' | 'unread';
   onToggleSort: () => void;
-  isUnreadOnly: boolean;
-  onToggleUnreadOnly: () => void;
-  onManage: () => void;
-  onClearRead: () => void;
-  onMarkAllRead: () => void;
 }
 
 export const RssFilterRow = ({
   sortOrder,
   onToggleSort,
-  isUnreadOnly,
-  onToggleUnreadOnly,
-  onManage,
-  onClearRead,
-  onMarkAllRead
 }: RssFilterRowProps) => {
   const { colors } = useTheme();
   const { t } = useLanguage();
@@ -37,10 +27,15 @@ export const RssFilterRow = ({
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs + 2,
       borderRadius: borderRadius.xxl,
+      backgroundColor: colors.bgMuted,
+      maxWidth: 140,
+      flexShrink: 1,
+      alignItems: 'center',
     },
     chipText: {
       fontSize: 13,
       fontWeight: typography.weights.medium,
+      color: colors.textSecondary,
     },
     chipTextActive: {
       color: colors.white,
@@ -63,17 +58,7 @@ export const RssFilterRow = ({
           labelStyle={styles.chipText}
         />
 
-        <IconButton
-          label={t.rss.unreadOnly}
-          name={isUnreadOnly ? "eye-off-outline" : "eye-outline"}
-          variant={isUnreadOnly ? 'filled' : 'ghost'}
-          onPress={onToggleUnreadOnly}
-          style={[styles.chip, isUnreadOnly && { backgroundColor: colors.primary }]}
-          labelStyle={[styles.chipText, isUnreadOnly && styles.chipTextActive]}
-        />
-        <IconButton label={t.rss.manageFeeds} name="settings-outline" variant="ghost" onPress={onManage} style={styles.chip} labelStyle={styles.chipText} />
-        <IconButton label={t.rss.clearRead} name="trash-outline" variant="ghost" onPress={onClearRead} style={styles.chip} labelStyle={styles.chipText} />
-        <IconButton label={t.rss.markAllRead} name="checkmark-done-outline" variant="ghost" onPress={onMarkAllRead} style={styles.chip} labelStyle={styles.chipText} />
+        {/* Unread-only and bulk actions moved to FAB group */}
       </ScrollView>
     </View>
   );

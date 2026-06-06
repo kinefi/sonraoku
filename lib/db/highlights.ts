@@ -41,6 +41,7 @@ export async function getAllHighlights(searchQuery?: string): Promise<DbResult<H
       context_after: highlights.context_after,
       created_at: highlights.created_at,
       article_title: articles.title,
+      article_url: articles.url,
     })
       .from(highlights)
       .innerJoin(articles, eq(highlights.article_id, articles.id))

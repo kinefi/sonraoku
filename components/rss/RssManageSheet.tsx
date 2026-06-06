@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, View, Text, Modal, Pressable, TouchableOpacity, Alert, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -13,16 +13,29 @@ interface Props {
   feeds: RssFeed[];
   onReorder: (data: RssFeed[]) => void;
   onDeleteFeed: (id: string) => void;
+  onDeleteFeeds?: (ids: string[]) => void;
   onMarkFeedRead: (id: string) => void;
   onImport: () => void;
   onExport: () => void;
   onDeleteAll: () => void;
-  onClearRead: () => void;
 }
 
-const RssManageSheet = ({ visible, onClose, feeds, onReorder, onDeleteFeed, onMarkFeedRead, onImport, onExport, onDeleteAll, onClearRead }: Props) => {
+const RssManageSheet = ({ visible, onClose, feeds, onReorder, onDeleteFeed, onDeleteFeeds, onMarkFeedRead, onImport, onExport, onDeleteAll }: Props) => {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, translate } = useLanguage();
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelected(new Set()), []);
 
   const renderFeedItem = ({ item }: { item: RssFeed }) => (
       <Swipeable
@@ -41,11 +54,20 @@ const RssManageSheet = ({ visible, onClose, feeds, onReorder, onDeleteFeed, onMa
         )}
       >
         <TouchableOpacity
+          onLongPress={() => {
+            Alert.alert(item.title || '', t.rss.deleteFeedConfirm, [
+              { text: t.common.cancel, style: 'cancel' },
+              { text: t.common.delete, style: 'destructive', onPress: () => onDeleteFeed(item.id) }
+            ]);
+          }}
           style={[
-            styles.row, 
-            { backgroundColor: colors.bgPage, borderBottomColor: colors.borderLight }
+            styles.row,
+            { backgroundColor: selected.has(item.id) ? colors.bgMuted : colors.bgPage, borderBottomColor: colors.borderLight }
           ]}
         >
+          <TouchableOpacity onPress={() => toggleSelect(item.id)} style={{ marginRight: spacing.sm }}>
+            <Ionicons name={selected.has(item.id) ? 'checkmark-circle' : 'ellipse-outline'} size={20} color={selected.has(item.id) ? colors.primary : colors.textSecondary} />
+          </TouchableOpacity>
           <Ionicons name="logo-rss" size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
           <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
           <IconButton 
@@ -95,6 +117,28 @@ const RssManageSheet = ({ visible, onClose, feeds, onReorder, onDeleteFeed, onMa
                 <Text style={{ color: colors.textPrimary }}>{t.rss.exportOpml}</Text>
               </TouchableOpacity>
             </View>
+
+            {selected.size > 0 && (
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.error + '1a', flex: 1 }]} onPress={() => {
+                  Alert.alert(t.rss.deleteSelected, translate('rss.deleteSelectedConfirm', { count: selected.size }), [
+                    { text: t.common.cancel, style: 'cancel' },
+                    { text: t.common.delete, style: 'destructive', onPress: () => {
+                      const ids = Array.from(selected);
+                      if (typeof onDeleteFeeds === 'function') onDeleteFeeds(ids);
+                      else ids.forEach((id) => onDeleteFeed(id));
+                      clearSelection();
+                    }}
+                  ]);
+                }}>
+                  <Ionicons name="trash-bin-outline" size={18} color={colors.error} style={{ marginRight: 8 }} />
+                  <Text style={{ color: colors.error, fontWeight: typography.weights.bold }}>{t.rss.deleteSelected}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.btn, { backgroundColor: colors.bgMuted }]} onPress={clearSelection}>
+                  <Text style={{ color: colors.textPrimary }}>{t.common.cancel}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <TouchableOpacity style={[styles.btn, { backgroundColor: colors.error + '1a' }]} onPress={onDeleteAll}>
               <Ionicons name="trash-bin-outline" size={18} color={colors.error} style={{ marginRight: 8 }} />

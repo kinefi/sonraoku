@@ -17,7 +17,7 @@ import { useLanguage, LANGUAGES, Lang } from '@/lib/language';
 import { formatBytes } from '@/lib/utils';
 import { APP_VERSION, APP_README, GITHUB_URL, TIMEOUTS } from '@/lib/constants';
 import { useSettings, useRssActions } from '@/lib/hooks';
-import { IconButton, SegmentedControl, SettingsSection, SettingsRow } from '@/components';
+import { IconButton, SegmentedControl, SettingsSection, SettingsRow, UserGuideModal } from '@/components';
 
 export default function SettingsScreen() {
   const { t, lang, setLang } = useLanguage();
@@ -26,8 +26,7 @@ export default function SettingsScreen() {
   const {
     fontSize, highlightColor, cacheSize, isBgSyncEnabled, toggleBgSync,
     changeFontSize, changeHighlightColor, handleClearCache, FONT_SIZE_MIN, FONT_SIZE_MAX
-  } = useSettings();
-
+  } = useSettings();  const [isGuideVisible, setGuideVisible] = useState(false);
   const { syncAllMutation } = useRssActions();
 
   const handleManualSync = useCallback(() => {
@@ -170,6 +169,53 @@ export default function SettingsScreen() {
       fontFamily: fontFamily === 'serif' ? 'serif' : 'sans-serif',
       textAlign: 'center',
     },
+    modalBackdrop: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.overlay,
+    },
+    modalPanel: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: 'transparent',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      backgroundColor: colors.bgPage,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    modalContent: {
+      padding: spacing.lg,
+      backgroundColor: colors.bgPage,
+    },
+    modalSection: {
+      marginBottom: spacing.lg,
+    },
+    modalSectionTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: spacing.sm,
+    },
+    modalSectionText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 22,
+      marginBottom: spacing.sm,
+    },
     aboutContent: {
       padding: spacing.lg,
       borderTopWidth: 1,
@@ -252,6 +298,15 @@ export default function SettingsScreen() {
                 toggleBgSync(enabled);
               }}
             />
+          </SettingsSection>
+
+          <SettingsSection title={t.settings.help} description={t.settings.userGuideDesc}>
+            <SettingsRow
+              label={t.settings.userGuide}
+              onPress={() => setGuideVisible(true)}
+            >
+              <IconButton name="information-circle-outline" size={16} color={colors.primary} passive />
+            </SettingsRow>
           </SettingsSection>
 
           <SettingsSection title={t.nav.rss}>
@@ -369,6 +424,8 @@ export default function SettingsScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        <UserGuideModal visible={isGuideVisible} onClose={() => setGuideVisible(false)} />
       </SafeAreaView>
     </Animated.View>
   );

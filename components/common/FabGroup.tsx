@@ -18,6 +18,7 @@ export type FabAction = {
   variant?: 'ghost' | 'filled' | 'outlined';
   style?: ViewStyle;
   useFloatingStyle?: boolean;
+  accessibilityLabel?: string;
 };
 
 type Props = {
@@ -73,6 +74,7 @@ export default function FabGroup({ actions, containerStyle, disableAbsolutePosit
           variant={action.variant}
           color={action.iconColor || (action.backgroundColor === 'transparent' ? colors.primary : colors.white)}
           disabled={action.disabled}
+          accessibilityLabel={action.accessibilityLabel}
           onPress={() => {
             if (action.haptic) {
               Haptics.impactAsync(action.haptic);

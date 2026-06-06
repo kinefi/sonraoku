@@ -13,9 +13,13 @@ export const db = drizzle(sqlite, { schema });
 export async function initDb(): Promise<DbAction> {
   // Always disable foreign keys during migration to prevent constraint errors
   sqlite.execSync('PRAGMA foreign_keys = OFF');
-  
-  // Always enable Write-Ahead Logging (WAL) mode
-  sqlite.execSync('PRAGMA journal_mode = WAL');
+
+  // Attempt to enable Write-Ahead Logging (WAL) mode if supported
+  try {
+    sqlite.execSync('PRAGMA journal_mode = WAL');
+  } catch (e) {
+    console.warn('WAL mode not supported on this SQLite build, falling back to default journal mode.', e);
+  }
   
   // Check if we are in a broken state by attempting to create the migrations table safely
   try {

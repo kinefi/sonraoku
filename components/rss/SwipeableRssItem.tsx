@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { Text, StyleSheet, AccessibilityInfo } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useTheme, sharedStyles, spacing, borderRadius } from '@/lib/theme';
 import { useLanguage } from '@/lib/language';
 import { queryClient } from '@/lib/reader';
@@ -23,7 +23,7 @@ export default function SwipeableRssItem({ item, onPress, onSave, onDelete, onSa
   const { t } = useLanguage();
   const { colors } = useTheme();
   const { showToast } = useToast();
-  const swipeableRef = useRef<Swipeable>(null);
+  const swipeableRef = useRef<React.ElementRef<typeof Swipeable>>(null);
 
   const styles = useMemo(() => StyleSheet.create({
     ...sharedStyles(colors),

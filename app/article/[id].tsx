@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo, useContext } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -14,12 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useArticleSpeech, useArticleSettings, useArticleActions, useThemeTransition } from '@/lib/hooks';
-import { queryClient, ParseQueueContext } from '@/lib/reader';
+import { queryClient, useParseQueue } from '@/lib/reader';
 import {
   getArticleById, markArticleRead,
   getHighlightsByArticle, getTagsForArticle, getTags
 } from '@/lib/db';
-import { sharedStyles, spacing, borderRadius, typography, useTheme, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
+import { sharedStyles, spacing, borderRadius, typography, FONT_SIZE_MIN, FONT_SIZE_MAX } from '@/lib/theme';
 import ReaderView from '@/components/reader/ReaderView';
 import ArticleMetaHeader from '@/components/reader/ArticleMetaHeader';
 import HighlightsModal from '@/components/reader/HighlightsModal';
@@ -33,10 +33,9 @@ export default function ArticleScreen() {
   const { id, highlightId } = useLocalSearchParams<{ id: string; highlightId?: string }>();
   const { t } = useLanguage();
   const { fontSize, fontFamily, changeFontSize, defaultColor, colors } = useArticleSettings();
-  useTheme();
   
-  const { parseQueue } = useContext(ParseQueueContext) as any;
-  const isCurrentlyParsing = useMemo(() => parseQueue?.some((item: any) => item.id === id), [parseQueue, id]);
+  const { parseQueue } = useParseQueue();
+  const isCurrentlyParsing = useMemo(() => parseQueue.some((item) => item.id === id), [parseQueue, id]);
 
   const scrollProgress = useRef(new Animated.Value(0)).current;
   const [readerHeight, setReaderHeight] = useState(0);
